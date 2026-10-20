@@ -1,0 +1,14 @@
+{
+  "ffmpeg_path": "D:/ffmpeg-8.0-essentials_build/bin/ffmpeg.exe",
+  "ffprobe_path": "",
+  "target_size_mb": 5.0,
+  "quality": "medium",
+  "format": "mp4",
+  "max_width": 1280,
+  "max_fps": 30,
+  "codec": "h264",
+  "keep_audio": true,
+  "audio_bitrate": 128,
+  "two_pass": false,
+  "generate_thumbnail": true
+}

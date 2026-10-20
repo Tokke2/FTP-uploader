@@ -1,0 +1,49 @@
+{
+    "gallery": {
+        "title": "Mitt Bildgalleri",
+        "description": "Ett vackert bildgalleri",
+        "images_path": "./images",
+        "output_path": "./output",
+        "thumbnail_size": [200, 200],
+        "image_quality": 85
+    },
+    "ftp": {
+        "host": "ftp.example.com",
+        "username": "your_username",
+        "password": "your_password",
+        "remote_path": "/public_html/gallery",
+        "port": 21
+    },
+    "html": {
+        "template": "templates/gallery.html",
+        "images_per_row": 4,
+        "enable_lightbox": true
+    },
+    "plugins": [
+        {
+            "name": "base_plugin",
+            "class": "BasePlugin",
+            "enabled": false
+        },
+        {
+            "name": "image_processor",
+            "class": "ImageProcessor",
+            "enabled": true
+        },
+        {
+            "name": "html_generator",
+            "class": "HTMLGenerator",
+            "enabled": true
+        },
+        {
+            "name": "ftp_uploader",
+            "class": "FTPUploader",
+            "enabled": true
+        }
+    ],
+    "pipeline": [
+        "image_processor",
+        "html_generator",
+        "ftp_uploader"
+    ]
+}

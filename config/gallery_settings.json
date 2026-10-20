@@ -1,0 +1,16 @@
+{
+  "thumbnail_size": 100,
+  "show_filenames": true,
+  "show_numbers": true,
+  "show_filesize": false,
+  "show_dimensions": false,
+  "confirm_delete": true,
+  "auto_save": true,
+  "animation_enabled": true,
+  "double_click_preview": true,
+  "rotation_saves_file": false,
+  "load_last_folder_on_start": false,
+  "last_folder": "D:/Bilder/Handelskammaren/tzg874",
+  "auto_save_interval": 60,
+  "slideshow_interval": 30
+}

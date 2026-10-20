@@ -1,0 +1,25 @@
+{
+  "folder": "E:/_ Kamera/toy400",
+  "title": "toy400",
+  "description": "",
+  "theme": "light",
+  "columns": 4,
+  "thumbnail_size": "150x150",
+  "fullsize_max": "2560x1440",
+  "quality": 95,
+  "preserve_exif": false,
+  "auto_rotate": true,
+  "ftp": {
+    "enabled": false,
+    "server": "",
+    "user": "",
+    "path": "/public_html/gallery"
+  },
+  "mode": "dev",
+  "smart_cache": true,
+  "_meta": {
+    "schema_version": 2
+  },
+  "autostart": false,
+  "start_minimized": true
+}

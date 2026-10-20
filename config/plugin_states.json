@@ -1,0 +1,16 @@
+{
+  "advanced_logger": true,
+  "custom_css_editor": true,
+  "gallery_view": true,
+  "html_generator": true,
+  "image_processor": true,
+  "image_sorter": true,
+  "menu_manager": true,
+  "slideshow_generator": true,
+  "system_tray": true,
+  "tab_manager": true,
+  "ui_controls": true,
+  "ui_settings": true,
+  "video_processor": true,
+  "watch_folder": true
+}

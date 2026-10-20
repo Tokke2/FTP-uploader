@@ -1,0 +1,131 @@
+# FIL:  requirements.txt
+# PLATS: /requirements.txt  (projektroten, bredvid main.pyw, helpers.py, spec.md)
+# ============================================================
+# Gallery Uploader - PINNADE BEROENDEN
+# ============================================================
+# Version: 1.1.0
+# Datum:   2026-09-15
+# Python:  3.12 - 3.14 (utvecklarmiljon: Python 3.14 pa Windows)
+#
+# PYTHON 3.14 / TCL-TK 9.0 - VIKTIGT:
+#   Python 3.14 pa Windows skeppas med Tcl/Tk 9.0, som TOG BORT det
+#   gamla "trace variable"-kommandot. Kod som anvander den utfasade
+#   tkinter-API:n Variable.trace("w", cb) / trace_variable / trace_vdelete
+#   / trace_vinfo kraschar darfor med:
+#       TclError: bad option "variable": must be add, info, or remove
+#   Ratt API (fungerar pa bade Tcl/Tk 8.6 och 9.0):
+#       var.trace_add("write", cb)   var.trace_remove("write", id)
+#   Fixat 2026-09-15 i plugins/ui_controls.py v2.4.1 och
+#   plugins/image_sorter.py v4.2.1. Ingen annan legacy-trace finns kvar.
+#   Ovriga tkinter-anrop i projektet (tk_popup, wm_geometry,
+#   wm_overrideredirect, bind_all) ar giltiga aven i 3.14.
+#
+# WHEEL-KONTROLL (verifierad mot PyPI 2026-09-15, win_amd64):
+#   Pillow       cp313/cp314 wheels finns
+#   pystray      py2.py3-none-any (ren Python)
+#   watchdog     py3-none-win_amd64 (ren Python pa Windows)
+#   darkdetect   py3-none-any (ren Python)
+#   six          py2.py3-none-any (ren Python)
+#
+# INSTALLERAD MILJO VERIFIERAD 2026-09-15 (Python 3.14, win_amd64):
+#   "py -m pip install -r requirements.txt" svarade
+#   "Requirement already satisfied" for ALLA fem paket - de fanns redan
+#   i exakt de pinnade versionerna (Pillow 12.3.0, pystray 0.19.5,
+#   six 1.17.0, watchdog 6.0.0, darkdetect 0.8.0). Pinnarna stammer
+#   alltsa med verkligheten, ingen ominstallation behovdes.
+#   Raderna "Ignoring python-xlib/pyobjc-framework-Quartz: markers
+#   ... don't match your environment" ar NORMALT och korrekt: pip
+#   hoppar over Linux-/macOS-beroenden pa Windows.
+#
+# INSTALLATION:
+#   python -m pip install -r requirements.txt
+#
+# REGLER (lanade fran FILREGISTRERING MASTER SPEC v1.5, Sektion J + L11):
+#   * ALLA beroenden pinnas med == (aldrig >= eller ~=).
+#     Motivering: deterministisk installation, samma beteende pa alla
+#     maskiner, inga overraskande minor-uppgraderingar som andrar UI/
+#     bildbeteende (Pillow i synnerhet).
+#   * Transitiva beroenden som appen ar beroende av i praktiken listas
+#     OCKSA explicit (six, python-xlib, pyobjc-framework-Quartz) sa att
+#     hela installationen ar reproducibel.
+#   * Ingen filnamnsrad 1 med appnamnet har (pip skulle tolka den som ett
+#     paketkrav) - allt som inte ar kod ar kommenterat med #.
+#
+# UPPDATERING AV EN PINNING:
+#   1. python -m pip install --upgrade <paket>
+#   2. python -m pip freeze | findstr /I "<paket>"   (Windows)
+#      python -m pip freeze | grep -i "<paket>"      (Linux/macOS)
+#   3. For in den nya versionen har NEDAN.
+#   4. Synka avsnitt 7 i spec.md (Teknisk miljo och beroenden) -
+#      spec.md ar source of truth och maste alltid stamma med denna fil.
+#   5. Kor appen en gang och kontrollera logs/ for saknade-modul-varningar.
+#
+# ============================================================
+# KARNBEROENDE - KRAVS ALLTID
+# ============================================================
+#
+# Pillow  : PIL - bildminiatyrer, gallerikort, RGBA-tray-ikon,
+#           videoprocessorns bildbehandling, badge-generering i helpers.py.
+# pystray : EN tray-ikon (plugins/system_tray.py + helpers.SystrayManager).
+#           Saknas den degraderar appen (HAS_SYSTRAY = False) men startar.
+# six     : transitivt krav fran pystray - pinnat for determinism.
+
+Pillow==12.3.0
+pystray==0.19.5
+six==1.17.0
+
+# ============================================================
+# VALFRIA BEROENDEN - APPEN HAR GRACEFUL FALLBACK I KODEN
+# ============================================================
+#
+# watchdog   : plugins/watch_folder.py - filovervakning i realtid.
+#              WATCHDOG_AVAILABLE-flagga; saknas den visas en knapp som
+#              installerar paketet i en bakgrundstrad (UI blockeras aldrig).
+# darkdetect : helpers.get_system_theme() - "system"-temat (morkt/ljust
+#              foljer OS). Fallback i kod: Windows-registry / GTK /
+#              gsettings color-scheme, sa temalaget fungerar utan paketet.
+
+watchdog==6.0.0
+darkdetect==0.8.0
+
+# ============================================================
+# PLATTFORMSSPECIFIKA TRANSITIVA BEROENDEN (pystray)
+# ============================================================
+#
+# Markorer ("; sys_platform == ...") gor att pip bara installerar det som
+# faktiskt galler for aktuell plattform. Windows behover inget extra -
+# dar anvander pystray ctypes/win32-API direkt.
+
+python-xlib==0.33 ; sys_platform == "linux"
+pyobjc-framework-Quartz==12.2.2 ; sys_platform == "darwin"
+
+# ============================================================
+# SAKNAS I PIP - SKA INTE STALLAS I DENNA FIL
+# ============================================================
+#
+# tkinter   : ingar i Python pa Windows/macOS. Pa Linux installeras den
+#             via pakethanteraren, INTE via pip:
+#               Debian/Ubuntu : sudo apt install python3-tk
+#               Fedora        : sudo dnf install python3-tkinter
+#               Arch          : sudo pacman -S tk
+#
+# FFmpeg / FFprobe : externa binarer som plugins/video_processor.py letar
+#             upp i PATH (find_ffmpeg). Installeras via winget/choco/apt/
+#             brew eller hemsidan - pip ger ingen tillforlitlig binar for
+#             vara filterkommandon, darfor inget krav har.
+#
+# ftplib, json, pathlib, threading, queue, socket, tempfile, shutil,
+# ctypes, winreg, subprocess, re, io, platform, webbrowser, traceback :
+#             stdlib - skrivs aldrig in i denna fil.
+#
+# ============================================================
+# VERIFIERING (kor efter installation)
+# ============================================================
+#
+#   python -c "import PIL, pystray, watchdog, darkdetect; print('OK')"
+#   python -c "import tkinter; print('Tk/Tcl', tkinter.TkVersion)"
+#   python -m pip check          # upptackter trasiga/transitiva beroenden
+#   python main.pyw              # starta tyst och las logs/gallery_*.log
+#                                  (startbanderollen visar Python-, Tk/Tcl-
+#                                   version och vilka undantagsvakter som ar
+#                                   aktiva - advanced_logger v2.3.1)
