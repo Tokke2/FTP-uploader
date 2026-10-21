@@ -106,6 +106,7 @@
 # ============================================================
 
 
+import app_paths
 import tkinter as tk
 import sys
 import os
@@ -1080,7 +1081,7 @@ class BasePlugin:
                 return _helpers_config_path()
             except Exception:
                 pass
-        p = self.get_base_path() / "config"
+        p = app_paths.config_dir()
         p.mkdir(parents=True, exist_ok=True)
         return p
 

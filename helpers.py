@@ -85,6 +85,7 @@
 #   pathlib.Path
 # ============================================================
 
+import app_paths
 import tkinter as tk
 from tkinter import ttk
 import json
@@ -221,7 +222,7 @@ def from_app_rel(s):
 
 def get_config_path() -> Path:
     """Returnera config/-mappens Path. Skapar mappen om den saknas."""
-    p = get_base_path() / "config"
+    p = app_paths.config_dir()
     p.mkdir(parents=True, exist_ok=True)
     return p
 

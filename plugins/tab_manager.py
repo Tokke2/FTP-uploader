@@ -116,6 +116,7 @@
 #   Alt+1-9           - Valj flik per index (alternativ)
 # ============================================================
 
+import app_paths
 import tkinter as tk
 from tkinter import ttk
 from pathlib import Path
@@ -220,7 +221,7 @@ class TabManager(BasePlugin):
         """Returnera sokvag till tab_state.json (A10)."""
         if _HAS_HELPERS:
             return get_config_path() / "tab_state.json"
-        return Path(__file__).parent.parent / "config" / "tab_state.json"
+        return app_paths.config_dir() / "tab_state.json"
 
     # ==========================================================================
     # TEMA-FARGER (C1)

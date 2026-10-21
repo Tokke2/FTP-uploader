@@ -236,19 +236,15 @@ class GalleryViewMixin:
         if status_text is not None:
             self._set_status(status_text)
 
+    def _apply_gallery_filter(self):
+        from .gallery_layout import filter_images
+        self.filtered_files = filter_images(
+            self.image_files, self._search_var.get(), self._filter_var.get())
+        self._debounced_refresh("%d av %d bilder" % (
+            len(self.filtered_files), len(self.image_files)))
+
     def _on_search_changed(self, *args) -> None:
-        term = self._search_var.get().lower().strip()
-        if not term:
-            self.filtered_files = self.image_files.copy()
-        else:
-            self.filtered_files = [
-                f for f in self.image_files
-                if term in f.name.lower()
-            ]
-        self._debounced_refresh(
-            "%d av %d bilder"
-            % (len(self.filtered_files), len(self.image_files))
-        )
+        self._apply_gallery_filter()
 
     def clear_search(self) -> None:
         self._search_var.set("")
@@ -259,25 +255,7 @@ class GalleryViewMixin:
         self.refresh_gallery()
 
     def _on_filter_changed(self, event=None) -> None:
-        ft = self._filter_var.get()
-        ext_map = {
-            "JPEG":  [".jpg", ".jpeg"],
-            "PNG":   [".png"],
-            "GIF":   [".gif"],
-            "WebP":  [".webp"],
-            "Andra": [".bmp", ".tiff", ".tif"],
-        }
-        if ft == "Alla":
-            self.filtered_files = self.image_files.copy()
-        else:
-            exts = ext_map.get(ft, [])
-            self.filtered_files = [
-                f for f in self.image_files
-                if f.suffix.lower() in exts
-            ]
-        self._debounced_refresh(
-            "Filter: %s - %d bilder" % (ft, len(self.filtered_files))
-        )
+        self._apply_gallery_filter()
 
     def _on_mouse_down(self, event, index: int) -> None:
         self.drag_start_pos   = (event.x_root, event.y_root)
@@ -444,7 +422,7 @@ class GalleryViewMixin:
                 ws["outer"].config(bg=border)
                 ws["inner"].config(bg=bg)
                 ws["info"].config(bg=bg)
-                ws["check"].config(text="X" if sel else "", bg=bg)
+                ws["check"].config(text="✓" if sel else "", bg=bg)
                 ws["num"].config(bg=bg, fg=fg)
                 if ws.get("name"):
                     ws["name"].config(bg=bg, fg=fg)

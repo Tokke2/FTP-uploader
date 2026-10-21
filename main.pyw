@@ -4,7 +4,7 @@
 # ============================================================
 # FIL:      main.pyw
 # PLATS:    projektrot (FTP-Galleri/)
-# Version:  2.8.4
+# Version:  1.0.0
 # AUTHOR:   Rickard Längkvist
 # COPYRIGHT: Copyright (c) <år> Rickard Längkvist (dynamiskt år, se COPYRIGHT-konstanten)
 # Syfte:    Minimalt skal – all funktionalitet i plugins/
@@ -161,8 +161,8 @@ try:
     hide_console()
     ensure_requirements(BASE_DIR)
     hide_console()
-except Exception:
-    pass
+except Exception as exc:
+    messagebox.showerror("Python-tillägg", "Kontrollen av Python-tillägg misslyckades:\n%s" % exc)
 
 # ==============================================================================
 # STEG 2: Säker skriv-funktion (M4: flyttad till main_guards.py)
@@ -256,7 +256,7 @@ except ImportError:
 # ==============================================================================
 
 APP_NAME            = "FTP-Galleri"
-APP_VERSION         = "2.8.4"
+APP_VERSION         = "1.0.0"
 AUTHOR              = "Rickard Längkvist"
 COPYRIGHT           = "Copyright (c) %d %s" % (datetime.now().year, AUTHOR)
 DEFAULT_GEOMETRY    = "900x700"
@@ -410,6 +410,9 @@ class App(tk.Tk):
         self._setup_keyboard_shortcuts()
         self.protocol("WM_DELETE_WINDOW", self.on_close)
         self.bind("<Configure>", self._on_configure)
+        from window_tray import MinimizeToTray
+        self._minimize_to_tray = MinimizeToTray(self)
+        self.bind("<Unmap>", self._minimize_to_tray.on_unmap, add="+")
 
         # ── 10b. Trigger-poll (A6) ────────────────────────────
         self.after(1000, self._poll_show_trigger)
@@ -586,6 +589,9 @@ class App(tk.Tk):
         )
 
         # ── Hjälp ─────────────────────────────────────────────
+        from auto_update import show_update_settings
+        self.menubar.add_command(label="Uppdateringar", command=lambda:
+                                 show_update_settings(self, BASE_DIR))
         self.help_menu = tk.Menu(self.menubar, tearoff=0)
         self.menubar.add_cascade(label="Hjälp", menu=self.help_menu)
         self.help_menu.add_command(

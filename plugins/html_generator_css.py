@@ -474,10 +474,23 @@ GALLERY_CSS = """
     }
     .card:hover .card-fmt,
     .card:focus-visible .card-fmt { opacity: 1; }
+    /* More legible cards and a calm, keyboard-accessible inspection state. */
+    .card:focus-visible {
+      outline: 3px solid var(--ring); outline-offset: 3px;
+      border-color: var(--accent); z-index: 4;
+    }
+    [data-density="comfortable"] .card img {
+      object-fit: contain; background: var(--bg-sunken);
+    }
+    [data-density="comfortable"] .card-overlay {
+      opacity: 1; transform: none;
+    }
     .card.hidden-by-filter { display: none; }
     @media (hover: none) {
       .card-overlay { opacity: 1; transform: none; }
       .card-fmt { opacity: 1; }
+      .card:hover, .js .card.in:hover { transform: none; }
+      .card:hover img { transform: none; filter: none; }
     }
     .empty-state {
       max-width: var(--shell); margin: 0 auto; padding: var(--sp-7) var(--pad);
@@ -701,6 +714,8 @@ RESPONSIVE_CSS = """
     @media (max-width: 700px) {
       :root { --gap: 8px; --thumb-min: 124px; }
       .gallery { --cols: 2; }
+      .nav-btn, .attachment-link, .prefs-btn { min-height: 44px; }
+      .card-overlay { font-size: .82rem; padding: 32px 10px 10px; }
       .actionbar {
         flex-direction: column; align-items: stretch; gap: 8px;
         padding: 8px 12px;
@@ -714,8 +729,8 @@ RESPONSIVE_CSS = """
       .lb-btn { width: 48px; height: 48px; font-size: 1.6rem; }
       .lb-hint { display: none; }
       .strip-item { width: 54px; height: 40px; }
-      .lb-icon { width: 38px; height: 38px; }
-      #lb-close { width: 42px; height: 42px; }
+      .lb-icon { width: 44px; height: 44px; }
+      #lb-close { width: 44px; height: 44px; }
     }
     @media (max-width: 420px) {
       .gallery { --cols: 1; --thumb-min: 160px; }

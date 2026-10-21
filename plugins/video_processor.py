@@ -85,6 +85,7 @@
 # JSON: config/video_settings.json
 # ============================================================
 
+import app_paths
 import tkinter as tk
 from tkinter import ttk, messagebox, filedialog
 from pathlib import Path
@@ -1526,7 +1527,7 @@ class VideoProcessor(VideoProcessorUIMixin, BasePlugin):
             if _HAS_HELPERS:
                 cfg = get_config_path() / filename
             else:
-                cfg = Path(__file__).parent.parent / "config" / filename
+                cfg = app_paths.config_dir() / filename
             if cfg.exists():
                 return json.loads(cfg.read_text(encoding="utf-8"))
         except Exception as e:
@@ -1547,7 +1548,7 @@ class VideoProcessor(VideoProcessorUIMixin, BasePlugin):
             if _HAS_HELPERS:
                 config_dir = get_config_path()
             else:
-                config_dir = Path(__file__).parent.parent / "config"
+                config_dir = app_paths.config_dir()
             config_dir.mkdir(parents=True, exist_ok=True)
 
             cfg = config_dir / filename

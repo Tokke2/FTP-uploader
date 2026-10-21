@@ -310,7 +310,7 @@ def _show_progress(base, jobs):
 
     sub = ttk.Label(
         wrap,
-        text="%s paket saknas eller behover uppdateras." % total,
+        text="Kontrollerar och uppdaterar %s paket." % total,
     )
     sub.pack(anchor="w", pady=4)
 
@@ -392,12 +392,7 @@ def _show_progress(base, jobs):
 
 
 def ensure_requirements(base_dir=None):
-    """
-    Installera/uppdatera saknade paket fran requirements.txt.
-
-    Visar progressbar BARA om nagot saknas eller har fel version.
-    Returnerar True om allt ar ok (eller inget att gora).
-    """
+    """Check/install/upgrade every declared package on every startup."""
     hide_console()
     base = Path(base_dir) if base_dir else Path(__file__).resolve().parent
     req = base / "requirements.txt"
@@ -406,38 +401,16 @@ def ensure_requirements(base_dir=None):
         return True
 
     specs = _parse_requirements(req)
-    jobs = _needed(specs)
-    if not jobs:
-        hide_console()
-        return True
-
-    _log(
-        base,
-        "behover: %s"
-        % ", ".join("%s (%s)" % (n, w) for n, v, w in jobs),
-    )
+    # Ask pip's resolver for the newest stable compatible release on EVERY start.
+    # Ignore historical pins: the user explicitly opts for rolling dependencies.
+    jobs = [(name, None, "kontrollerar senaste stabila version") for name, ver in specs]
     if not _ensure_pip(base):
-        _log(base, "pip saknas, avbryter")
+        from tkinter import messagebox
+        messagebox.showerror("Python-tillägg", "pip saknas och kunde inte installeras.")
         return False
-
     ok, failed = _show_progress(base, jobs)
-    hide_console()
-    try:
-        import importlib
-        importlib.invalidate_caches()
-    except Exception:
-        pass
-    if failed:
-        return False
-    leftover = _needed(specs)
-    if leftover:
-        _log(
-            base,
-            "kvar efter pip: %s"
-            % ", ".join(n for n, v, w in leftover),
-        )
-        return False
-    _log(base, "alla tillbehor ok")
+    import importlib
+    importlib.invalidate_caches()
     return ok
 
 

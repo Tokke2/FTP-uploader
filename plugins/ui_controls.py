@@ -131,6 +131,7 @@
 #   { "folders": [...] }  max 10 poster
 # ============================================================
 
+import app_paths
 import tkinter as tk
 from tkinter import ttk, messagebox, filedialog
 import webbrowser
@@ -268,7 +269,7 @@ class ControlsUI(BasePlugin):
         """Returnera sökväg till recent_folders.json (A10)."""
         if _HAS_HELPERS:
             return get_config_path() / "recent_folders.json"
-        return Path(__file__).parent.parent / "config" / "recent_folders.json"
+        return app_paths.config_dir() / "recent_folders.json"
 
     # ==========================================================================
     # TEMA-FARGER (C1)

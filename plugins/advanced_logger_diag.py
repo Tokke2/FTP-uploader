@@ -40,6 +40,7 @@
 #     även inklistrade loggar från användaren kan analyseras.
 # ============================================================
 
+import app_paths
 import json
 import re
 import socket
@@ -578,7 +579,7 @@ def _config_dir():
         from helpers import get_config_path
         return Path(get_config_path())
     except Exception:
-        return Path(__file__).parent.parent / "config"
+        return app_paths.config_dir()
 
 
 def _read_json(path, default=None):

@@ -136,6 +136,7 @@
 #   winreg                         (Windows, valfritt)
 # ============================================================
 
+import app_paths
 import sys
 import os
 import json
@@ -441,7 +442,7 @@ class SystemTrayPlugin(BasePlugin):
 
         # -- 2. X-knapp-handler --------------------------------
         app.protocol("WM_DELETE_WINDOW", self._on_window_close)
-        app.bind("<Unmap>", self._on_unmap)
+        # Main owns <Unmap> handling, including the built-in tray fallback.
 
         # -- 3. Ctrl+M (minimera) ------------------------------
         if TRAY_AVAILABLE and not IS_WAYLAND:
@@ -912,7 +913,8 @@ class SystemTrayPlugin(BasePlugin):
         Minimera till systray.
         Fallback till iconify() om systray ej ar tillgangligt.
         """
-        if not TRAY_AVAILABLE or not self.tray_icon or not self._tray_running:
+        if (not TRAY_AVAILABLE or IS_WAYLAND or not self.tray_icon
+                or not self._tray_running or not self.tray_icon.visible):
             try:
                 self.app.iconify()
             except Exception:
@@ -1319,7 +1321,7 @@ class SystemTrayPlugin(BasePlugin):
             if _HAS_HELPERS:
                 cfg = get_config_path() / filename
             else:
-                cfg = Path(__file__).parent.parent / "config" / filename
+                cfg = app_paths.config_dir() / filename
             if cfg.exists():
                 return json.loads(cfg.read_text(encoding="utf-8"))
         except Exception as e:
@@ -1337,7 +1339,7 @@ class SystemTrayPlugin(BasePlugin):
             if _HAS_HELPERS:
                 config_dir = get_config_path()
             else:
-                config_dir = Path(__file__).parent.parent / "config"
+                config_dir = app_paths.config_dir()
             config_dir.mkdir(parents=True, exist_ok=True)
 
             cfg = config_dir / filename

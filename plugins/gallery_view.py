@@ -104,6 +104,7 @@
 # OBS: gallery_view_helpers.py (GalleryViewMixin) i samma mapp.
 # ============================================================
 
+import app_paths
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
 from pathlib import Path
@@ -526,6 +527,9 @@ class GalleryView(GalleryViewMixin, BasePlugin):
         self._panels.append(af)
         self._btn(af, "Oppna mapp", self.load_images,
                   bg="COLOR_SEL", bold=True)
+        from .export_editor import open_editor
+        self._btn(af, "Öppna export", lambda: open_editor(self.app),
+                  bg="COLOR_SEL", tooltip="Redigera en exporterad gallerimapp")
         self.generate_btn = self._btn(
             af, "Generera HTML", self.generate_html,
             bg="COLOR_GREEN", bold=True, state=tk.DISABLED
@@ -1111,16 +1115,21 @@ class GalleryView(GalleryViewMixin, BasePlugin):
                     pass
         self.item_widgets.clear()
 
-        files = self.filtered_files or self.image_files
+        files = self.filtered_files
         if not files:
-            self._show_instructions()
+            if self.image_files:
+                tk.Label(self.inner_frame, text="Inga bilder matchar sökningen. Rensa sök/filter för att visa alla.",
+                         bg=self.COLOR_BG, fg=self.COLOR_MUTED, pady=35).pack()
+                self._update_counters()
+            else:
+                self._show_instructions()
             return
 
         cw = self.canvas.winfo_width()
         if cw < 100:
             cw = 800
-        item_w    = self.settings.get("thumbnail_size", 120) + 30
-        self.cols = max(1, cw // item_w)
+        from .gallery_layout import column_count
+        self.cols = column_count(cw, self.settings.get("thumbnail_size", 120))
 
         # v2.6.0: bygg indexkarta EN gång istället for .index() per item
         # (som var O(n^2) vid stora mappar).
@@ -1155,19 +1164,24 @@ class GalleryView(GalleryViewMixin, BasePlugin):
         inner = tk.Frame(outer, bg=bg, padx=4, pady=4)
         inner.pack()
 
-        # Thumbnail
+        # Equal image wells keep portrait/landscape cards aligned without cropping.
+        size = self.settings.get("thumbnail_size", 120)
+        well = tk.Frame(inner, width=size, height=size, bg=self.COLOR_THUMB_BG)
+        well.pack()
+        well.pack_propagate(False)
         if img_path in self.thumbnails:
             img_lbl = tk.Label(
-                inner, image=self.thumbnails[img_path],
+                well, image=self.thumbnails[img_path],
                 bg=self.COLOR_THUMB_BG, cursor="hand2",
             )
         else:
             img_lbl = tk.Label(
-                inner, text="[bild]", font=("Segoe UI", 14),
+                well, text="[bild]", font=("Segoe UI", 14),
                 bg=self.COLOR_THUMB_BG, fg=self.COLOR_MUTED,
                 width=8, height=4, cursor="hand2",
             )
-        img_lbl.pack()
+        img_lbl.pack(expand=True)
+        self._add_tooltip(img_lbl, img_path.name)
 
         # Rotationsindikator
         if is_rotated:
@@ -1198,7 +1212,7 @@ class GalleryView(GalleryViewMixin, BasePlugin):
         info.pack(fill=tk.X)
 
         check_lbl = tk.Label(
-            info, text="X" if is_selected else "",
+            info, text="✓" if is_selected else "",
             bg=bg, fg=self.COLOR_BTN_FG,
             font=("Segoe UI", 9, "bold"), width=2,
         )
@@ -1729,7 +1743,7 @@ class GalleryView(GalleryViewMixin, BasePlugin):
             if _HAS_HELPERS:
                 cfg = get_config_path() / filename
             else:
-                cfg = Path(__file__).parent.parent / "config" / filename
+                cfg = app_paths.config_dir() / filename
             if cfg.exists():
                 return json.loads(cfg.read_text(encoding="utf-8"))
         except Exception as e:
@@ -1747,7 +1761,7 @@ class GalleryView(GalleryViewMixin, BasePlugin):
             if _HAS_HELPERS:
                 config_dir = get_config_path()
             else:
-                config_dir = Path(__file__).parent.parent / "config"
+                config_dir = app_paths.config_dir()
             config_dir.mkdir(parents=True, exist_ok=True)
 
             cfg = config_dir / filename

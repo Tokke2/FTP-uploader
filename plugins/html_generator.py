@@ -174,6 +174,7 @@
 #   helpers: get_config_path (valfritt, A10)
 # ============================================================
 
+import app_paths
 import os
 import json
 import shutil
@@ -388,6 +389,12 @@ class HtmlGenerator(HtmlTemplatesMixin, BasePlugin):
             log=log,
         )
 
+        # Portable editor metadata: only exported relative paths, no source paths.
+        from .export_editor import write_manifest
+        write_manifest(output_path, entries, dict(gallery, title=title,
+                       theme=theme, columns=columns, description=description),
+                       output_format, context)
+
         # ── Context ───────────────────────────────────────────
         context["html_output"]     = index_file
         context["files_to_upload"] = self._build_files_to_upload(
@@ -432,8 +439,7 @@ class HtmlGenerator(HtmlTemplatesMixin, BasePlugin):
                 cfg = get_config_path() / "gallery_settings.json"
             else:
                 cfg = (
-                    Path(__file__).parent.parent
-                    / "config" / "gallery_settings.json"
+                    app_paths.config_dir() / "gallery_settings.json"
                 )
             if cfg.exists():
                 data = json.loads(cfg.read_text(encoding="utf-8"))
