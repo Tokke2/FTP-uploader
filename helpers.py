@@ -139,10 +139,11 @@ def safe_print(message: str) -> None:
         except (OSError, AttributeError):
             continue
     try:
-        log_dir = _BASE / "logs"
+        log_dir = app_paths.logs_dir()
         log_dir.mkdir(exist_ok=True)
         with open(log_dir / "helpers_errors.log", "a", encoding="utf-8") as f:
-            f.write("%s\n" % message)
+            from log_clock import timestamp
+            f.write("[%s] %s\n" % (timestamp(), message))
     except Exception:
         pass
 
@@ -234,7 +235,7 @@ def get_assets_path() -> Path:
 
 def get_logs_path() -> Path:
     """Returnera logs/-mappens Path. Skapar mappen om den saknas (A10)."""
-    p = get_base_path() / "logs"
+    p = app_paths.logs_dir()
     p.mkdir(parents=True, exist_ok=True)
     return p
 
@@ -256,9 +257,10 @@ def reset_startup_log() -> None:
     try:
         logs = get_logs_path()
         _STARTUP_LOGFILE = logs / "startup.log"
-        with open(_STARTUP_LOGFILE, "w", encoding="utf-8") as f:
+        # Daily startup compaction has preserved today's earlier sessions.
+        with open(_STARTUP_LOGFILE, "a", encoding="utf-8") as f:
             f.write(
-                "# FTP-Galleri – startlogg (senaste korningen)\n"
+                "\n# FTP-Galleri – startlogg (dagens körningar)\n"
                 "# Start:      %s\n"
                 "# Python:     %s\n"
                 "# Plattform:  %s (pid %d)\n"
@@ -294,7 +296,7 @@ def log_startup(step: str, detail: str = "") -> None:
     """
     try:
         line = "[%s] %s" % (
-            datetime.now().strftime("%H:%M:%S.%f")[:-3], step,
+            datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")[:-3], step,
         )
         if detail:
             line += " | " + detail
@@ -319,7 +321,7 @@ def log_startup_crash(traceback_text: str) -> None:
             f.write(
                 "\n[%s] KRASCH:\n%s%s\n"
                 % (
-                    datetime.now().strftime("%H:%M:%S"),
+                    datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
                     traceback_text,
                     "=" * 60,
                 )
@@ -1598,7 +1600,7 @@ class SystrayManager:
                 "[SystrayManager] Wayland detekterat - systray hoppad"
             )
             try:
-                self._app.after(200, self._app.show_window)
+                self._app.after(200, self._app.minimize_startup)
             except Exception:
                 pass
             return
@@ -1648,13 +1650,17 @@ class SystrayManager:
                 ),
             )
 
+            from tray_status import status_text
             menu = pystray.Menu(
+                pystray.MenuItem(lambda item: 'Status: ' + status_text(self._app), None, enabled=False),
+                pystray.Menu.SEPARATOR,
                 pystray.MenuItem(
                     "Visa FTP-Galleri",
                     self._on_show,
                     default=True,
                 ),
                 pystray.MenuItem("Tema", tema_menu),
+                pystray.MenuItem("Sök efter uppdateringar", self._on_updates),
                 pystray.Menu.SEPARATOR,
                 pystray.MenuItem("Avsluta", self._on_quit),
             )
@@ -1671,7 +1677,7 @@ class SystrayManager:
         except Exception as e:
             safe_print("[SystrayManager] Fel: %s" % e)
             try:
-                self._app.after(0, self._app.show_window)
+                self._app.after(0, self._app.minimize_startup)
             except Exception:
                 pass
 
@@ -1705,6 +1711,10 @@ class SystrayManager:
         self._set_theme("system")
 
     # -- Visa/Avsluta -----------------------------------------
+
+    def _on_updates(self, icon=None, item=None) -> None:
+        from auto_update import request_from_tray
+        request_from_tray(self._app)
 
     def _on_show(self, icon=None, item=None) -> None:
         """Visa fonstret (tradsakert via after)."""

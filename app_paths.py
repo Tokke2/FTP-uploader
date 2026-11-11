@@ -1,3 +1,4 @@
+# Copyright (c) 2026 Rickard Längkvist
 """Per-user writable data, independent of the source checkout."""
 import json
 import os
@@ -34,9 +35,16 @@ def config_dir():
     return path
 
 
+def app_dir():
+    """The installed app directory, independent of working directory."""
+    if getattr(sys, 'frozen', False):
+        return Path(sys.executable).resolve().parent
+    return Path(__file__).resolve().parent
+
+
 def logs_dir():
-    path = data_dir() / 'logs'
-    path.mkdir(exist_ok=True)
+    path = app_dir() / 'logs'
+    path.mkdir(parents=True, exist_ok=True)
     return path
 
 
@@ -47,7 +55,7 @@ def update_settings():
             return value
     except (OSError, ValueError, AttributeError):
         pass
-    return {'mode': 'ask'}
+    return {'mode': 'auto'}
 
 
 def save_update_settings(value):

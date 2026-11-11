@@ -271,6 +271,9 @@ class HtmlGenerator(HtmlTemplatesMixin, BasePlugin):
         custom_head   = context.get("custom_html_header", "")
         custom_footer = context.get("custom_html_footer", "")
 
+        from .visitor_tools import TOOLS_HTML, TOOLS_JS
+        custom_footer = custom_footer + TOOLS_HTML + '<script>' + TOOLS_JS + '</script>'
+
         output_format = self._get_output_format(context)
 
         if log:
@@ -314,6 +317,9 @@ class HtmlGenerator(HtmlTemplatesMixin, BasePlugin):
             context, images_path, output_path, output_format, log,
         )
 
+        if gallery.get('watermark_enabled') is True and not context.get('processed_images'):
+            raise ValueError('Logotyp som vattenstämpel kräver aktiverad bildprocessor. Generera om från källbilderna.')
+
         if not entries:
             if log:
                 log("  [!] Inga bilder att generera HTML for")
@@ -325,8 +331,29 @@ class HtmlGenerator(HtmlTemplatesMixin, BasePlugin):
             (output_path / "image").mkdir(parents=True, exist_ok=True)
             (output_path / "thumb").mkdir(parents=True, exist_ok=True)
 
+        from app_icon import resolve_icon_file
+        brand_icon = resolve_icon_file("icon_64.png", "icon.png")
+        if brand_icon is not None:
+            self._safe_copy(brand_icon, output_path / "app-icon.png")
+
+        from .gallery_checks import cover_options
+        cover_number, _ = cover_options(gallery)
+        if cover_number > len(entries):
+            raise ValueError('Omslagsbildens nummer överstiger antalet bilder.')
+
         # ── Kopiera bilder ────────────────────────────────────
         self._copy_images(entries, output_path, output_format, log)
+
+        from .web_image_assets import prepare_assets
+        context['optimization_report'] = prepare_assets(
+            entries, output_path, output_format, gallery, context, log)
+        context['optimization_report_path'] = str(output_path / 'optimization-report.html')
+        from .gallery_checks import prepare_cover
+        cover_meta = prepare_cover(entries, output_path, gallery, title, description)
+        custom_head = cover_meta + '\n' + custom_head
+        if not gallery.get('public_url') and log:
+            log('  Omslag skapat; ange publik galleri-URL för bild vid länkdelning.')
+
 
         # ── PDF & Video: samla, kopiera, döp om, länka ────────
         pdf_sources = self._collect_media(
@@ -395,6 +422,15 @@ class HtmlGenerator(HtmlTemplatesMixin, BasePlugin):
                        theme=theme, columns=columns, description=description),
                        output_format, context)
 
+        from .gallery_checks import check_links
+        link_report = check_links(output_path)
+        context['link_report'] = link_report
+        context['link_report_path'] = str(output_path / 'link-report.html')
+        if log:
+            log('  Länkkontroll: %d referenser, %d fel.' % (link_report['checked'], len(link_report['errors'])))
+        if not link_report['ok']:
+            raise ValueError('Exportens länkkontroll hittade trasiga lokala länkar. Se link-report.html.')
+
         # ── Context ───────────────────────────────────────────
         context["html_output"]     = index_file
         context["files_to_upload"] = self._build_files_to_upload(
@@ -416,6 +452,9 @@ class HtmlGenerator(HtmlTemplatesMixin, BasePlugin):
         except Exception:
             pass
 
+        if not context.get('_defer_learning'):
+            from local_learning import record_export
+            record_export(gallery, context['optimization_report'], log)
         return context
 
     # ==========================================================================
@@ -1213,6 +1252,7 @@ class HtmlGenerator(HtmlTemplatesMixin, BasePlugin):
         kort även på HiDPI-skärmar. loading="lazy" + decoding="async"
         håller uppe prestandan vid många bilder.
         """
+        from .web_image_assets import responsive_attributes
         cards = []
         for entry in entries:
             idx         = entry["index"]
@@ -1241,7 +1281,8 @@ class HtmlGenerator(HtmlTemplatesMixin, BasePlugin):
                 + 'tabindex="0" role="button" '
                 + 'aria-label="' + title + '">\n'
                 + '      <img src="' + src + '" '
-                + 'alt="' + title + '" loading="lazy" '
+                + responsive_attributes(entry, src)
+                + ' alt="' + title + '" loading="lazy" '
                 + 'decoding="async">\n'
                 + '      <span class="card-num">#'
                 + str(idx) + '</span>\n'
@@ -1259,6 +1300,7 @@ class HtmlGenerator(HtmlTemplatesMixin, BasePlugin):
         self, entries: list, output_format: str,
     ) -> str:
         """Bygg HTML för slideshow-slides."""
+        from .web_image_assets import responsive_attributes
         slides = []
         for i, entry in enumerate(entries):
             idx    = entry["index"]
@@ -1276,7 +1318,8 @@ class HtmlGenerator(HtmlTemplatesMixin, BasePlugin):
             slide = (
                 '    <div class="slide' + active + '">\n'
                 + '      <img src="' + full + '" '
-                + 'alt="' + title + '" loading="lazy">\n'
+                + responsive_attributes(entry, full, '100vw')
+                + ' alt="' + title + '" loading="lazy">\n'
                 + '      <div class="caption">' + title + '</div>\n'
                 + '    </div>'
             )
@@ -1294,6 +1337,7 @@ class HtmlGenerator(HtmlTemplatesMixin, BasePlugin):
         bild→bild-bladrningen i lightboxen fortsatt fungerar som forut.
         Varje post: {src, thumb, title} (utan type - listan ar ren).
         """
+        from .web_image_assets import responsive_srcset
         items = []
 
         for entry in entries:
@@ -1311,11 +1355,14 @@ class HtmlGenerator(HtmlTemplatesMixin, BasePlugin):
                     full  = "full_" + str(idx) + ext
                     thumb = "thumb_" + str(idx) + ext
 
-            items.append(
-                '{"src":"' + full + '",'
-                + '"thumb":"' + thumb + '",'
-                + '"title":"' + self._esc_js(title) + '"}'
-            )
+            item = {'srcset': responsive_srcset(entry, full), 'src': full, 'thumb': thumb, 'title': title,
+                    'download': entry.get('download', ''),
+                    'downloadLabel': entry.get('download_label', '')}
+            # Script-safe JSON: titles must never terminate the script element.
+            encoded = json.dumps(item, ensure_ascii=False)
+            for character, escape in (('<', 'u003c'), ('>', 'u003e'), ('&', 'u0026')):
+                encoded = encoded.replace(character, chr(92) + escape)
+            items.append(encoded)
 
         return "[\n    " + ",\n    ".join(items) + "\n  ]"
 

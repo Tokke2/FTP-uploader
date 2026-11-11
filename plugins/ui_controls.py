@@ -1038,7 +1038,7 @@ class ControlsUI(BasePlugin):
                     "aldrig klart. Meddelanden gar endast till logs/."
                 )
                 return
-            timestamp = datetime.now().strftime("%H:%M:%S")
+            timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             display   = (
                 "[%s] %s" % (timestamp, message)
                 if tag in ("error", "warning", "success")

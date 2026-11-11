@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# Copyright (c) 2026 Rickard Längkvist
 # ============================================================
 # Gallery Uploader – App-ikoner (icon/)
 # ============================================================
@@ -34,6 +35,12 @@ _ICON_SIZE_FILES = {
     64:  "icon_64.png",
     256: "icon_256.png",
 }
+
+
+def set_windows_app_id():
+    """Use our taskbar identity instead of the Python interpreter's identity."""
+    from windows_shortcut import set_app_id
+    set_app_id()
 
 
 def _base() -> Path:
@@ -127,6 +134,9 @@ def apply_tk_window_icon(window) -> str:
     photos = []
     source = "ingen"
     ico = resolve_icon_file("icon.ico")
+    if ico is not None and sys.platform == 'win32':
+        # Run after Tk maps its wrapper; iconphoto may otherwise reset native icons.
+        window.after_idle(lambda: apply_windows_window_icon(window, ico))
     if ico is not None:
         try:
             window.iconbitmap(str(ico))
@@ -141,10 +151,19 @@ def apply_tk_window_icon(window) -> str:
     try:
         from PIL import Image, ImageTk
     except ImportError:
+        # Tk 8.6 reads PNG directly, including the dependency-bootstrap window.
         try:
-            window._icon_photos = photos
+            import tkinter as tk
+            for size in (16, 32, 64, 256):
+                path = resolve_icon_file('icon_%d.png' % size)
+                if path is not None:
+                    photos.append(tk.PhotoImage(master=window, file=str(path)))
+            if photos:
+                window.iconphoto(True, *photos)
+                source = 'icon/*.png (Tk)'
         except Exception:
             pass
+        window._icon_photos = photos
         return source
 
     png_names = (
@@ -159,7 +178,7 @@ def apply_tk_window_icon(window) -> str:
             img = Image.open(pth)
             if img.mode != "RGBA":
                 img = img.convert("RGBA")
-            photos.append(ImageTk.PhotoImage(img))
+            photos.append(ImageTk.PhotoImage(img, master=window))
         except Exception:
             continue
 
@@ -181,7 +200,7 @@ def apply_tk_window_icon(window) -> str:
             from helpers import generate_app_icon
             gen = generate_app_icon((64, 64))
             if gen is not None:
-                ph = ImageTk.PhotoImage(gen)
+                ph = ImageTk.PhotoImage(gen, master=window)
                 photos.append(ph)
                 window.iconphoto(True, ph)
                 source = "genererad fallback"
@@ -195,3 +214,58 @@ def apply_tk_window_icon(window) -> str:
     except Exception:
         pass
     return source
+
+
+def _native_window(window):
+    import ctypes
+    from ctypes import wintypes
+    user = ctypes.windll.user32
+    user.GetAncestor.argtypes = [wintypes.HWND, wintypes.UINT]
+    user.GetAncestor.restype = wintypes.HWND
+    return user, user.GetAncestor(window.winfo_id(), 2) or window.winfo_id()
+
+
+def apply_windows_window_icon(window, icon):
+    """Explicit WM_SETICON for the real Tk wrapper (taskbar/Alt-Tab, 64-bit safe)."""
+    if sys.platform != 'win32':
+        return False
+    try:
+        import ctypes
+        from ctypes import wintypes
+        user, hwnd = _native_window(window)
+        user.LoadImageW.argtypes = [wintypes.HINSTANCE, wintypes.LPCWSTR, wintypes.UINT,
+                                   ctypes.c_int, ctypes.c_int, wintypes.UINT]
+        user.LoadImageW.restype = wintypes.HANDLE
+        user.SendMessageW.argtypes = [wintypes.HWND, wintypes.UINT, wintypes.WPARAM, wintypes.LPARAM]
+        user.SendMessageW.restype = ctypes.c_ssize_t
+        user.DestroyIcon.argtypes = [wintypes.HANDLE]
+        user.DestroyIcon.restype = wintypes.BOOL
+        handles = []
+        for kind, metric in ((0, 49), (1, 11)):
+            size = user.GetSystemMetrics(metric)
+            handle = user.LoadImageW(None, str(icon), 1, size, size, 0x10)
+            if handle:
+                user.SendMessageW(hwnd, 0x80, kind, handle)
+                handles.append(handle)
+        if handles:
+            # Own handles, never destroy shared icons returned by WM_SETICON.
+            # Keep any partial previous set alive until process exit as well.
+            window._native_icon_handles = getattr(window, '_native_icon_handles', []) + handles
+        return len(handles) == 2
+    except Exception:
+        return False
+
+
+def focus_app_window(window):
+    """The second launcher has granted our PID permission to take foreground."""
+    if sys.platform != 'win32':
+        return
+    try:
+        import ctypes
+        from ctypes import wintypes
+        user, hwnd = _native_window(window)
+        user.SetForegroundWindow.argtypes = [wintypes.HWND]
+        user.SetForegroundWindow.restype = wintypes.BOOL
+        user.SetForegroundWindow(hwnd)
+    except Exception:
+        pass

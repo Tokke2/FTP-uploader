@@ -277,6 +277,13 @@ _MINI_INDEX_JS = """
       if (!item) { return; }
       if (cap) { cap.textContent = item.title || ""; }
       if (cnt) { cnt.textContent = (current + 1) + " / " + LIST.length; }
+      var download = $("lb-download"), href = videoMode() ? "" : (item.download || "");
+      if (download) {
+        download.hidden = !href;
+        download.style.display = href ? "inline-flex" : "none";
+        if (href) { download.href = href; download.title = item.downloadLabel || "Ladda ned"; }
+        else { download.removeAttribute("href"); }
+      }
       if (videoMode()) {
         stopVideo();
         if (lbImg) { lbImg.style.display = "none"; }
@@ -291,6 +298,8 @@ _MINI_INDEX_JS = """
         if (lbVid) { lbVid.style.display = "none"; }
         if (lbImg) {
           lbImg.style.display = "block";
+          lbImg.sizes = "100vw";
+          lbImg.srcset = item.srcset || "";
           lbImg.src = item.src;
           lbImg.alt = item.title || "";
         }
@@ -433,11 +442,14 @@ _MINI_SLIDESHOW_JS = """
       if (lbl) { lbl.textContent = (speed / 1000) + " s"; }
     }
     document.addEventListener("keydown", function (e) {
-      if (e.key === "ArrowLeft") { show(idx - 1); }
-      if (e.key === "ArrowRight") { show(idx + 1); }
+      if (e.key === "ArrowLeft" || e.key === "a" || e.key === "A") { show(idx - 1); }
+      if (e.key === "ArrowRight" || e.key === "d" || e.key === "D") { show(idx + 1); }
+      if (e.key === "Home") { show(0); }
+      if (e.key === "End") { show(total - 1); }
       if (e.key === " ") { e.preventDefault(); setPlaying(!playing); }
       if (e.key === "Escape") { window.location.href = "index.html"; }
     });
+    document.addEventListener("visibilitychange", function () { lastTs = 0; });
     var hm = /^#(bild|img)-([0-9]+)$/.exec(
       (window.location.hash || "").toLowerCase()
     );
@@ -634,6 +646,7 @@ _INDEX_HEAD = """<!DOCTYPE html>
 <html lang="sv">
 <head>
   <meta charset="UTF-8">
+  <link rel="icon" type="image/png" href="app-icon.png">
   <meta name="viewport"
         content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="color-scheme" content="dark light">
@@ -749,7 +762,7 @@ _INDEX_STYLE_CUSTOM = """
         <button class="lb-icon" id="lb-share" type="button"
                 aria-label="Kopiera lank till bilden"
                 title="Kopiera lank">""" + ICON_LINK + """</button>
-        <a class="lb-icon" id="lb-download" href="#" download
+        <a class="lb-icon" id="lb-download" hidden style="display:none" download
            aria-label="Ladda ner filen"
            title="Ladda ner">""" + ICON_DOWNLOAD + """</a>
         <button class="lb-icon" id="lb-zoom" type="button"
@@ -810,6 +823,7 @@ _SLIDESHOW_HEAD = """<!DOCTYPE html>
 <html lang="sv">
 <head>
   <meta charset="UTF-8">
+  <link rel="icon" type="image/png" href="app-icon.png">
   <meta name="viewport"
         content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="color-scheme" content="dark light">

@@ -396,7 +396,8 @@ class AdvancedLogger(BasePlugin, UiCaptureMixin, DiagWindowMixin,
 
     def _resolve_logs_dir(self) -> Path:
         """Returnera logs/-mappens Path (A10)."""
-        return self._files.logs_dir if self._files else Path("logs")
+        from app_paths import logs_dir
+        return self._files.logs_dir if self._files else logs_dir()
 
     def _rotate_logs(self) -> int:
         """Rotera huvudloggar (max MAX_LOG_FILES). Returnerar antal borttagna."""
@@ -492,7 +493,7 @@ class AdvancedLogger(BasePlugin, UiCaptureMixin, DiagWindowMixin,
         if not self.is_active:
             return
 
-        timestamp = datetime.now().strftime("%H:%M:%S.%f")[:-3]
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
         lvl = (level or "INFO").upper()
         entry = {"time": timestamp, "level": lvl, "message": message}
 
@@ -552,7 +553,7 @@ class AdvancedLogger(BasePlugin, UiCaptureMixin, DiagWindowMixin,
 
     def log_exception(self, message: str, exc: Exception) -> None:
         """Logga undantag med full traceback och exakt orsakstid (U1/U4)."""
-        caused = datetime.now().strftime("%H:%M:%S.%f")[:-3]
+        caused = datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
         self.log("FEL", "%s: %s (orsakad %s)" % (message, exc, caused))
         self.log("DEBUG", "Traceback (orsakad %s):\n%s"
                  % (caused, traceback.format_exc()))
@@ -1729,7 +1730,7 @@ class AdvancedLogger(BasePlugin, UiCaptureMixin, DiagWindowMixin,
         except Exception:
             pass
         if self._files:
-            stamp = datetime.now().strftime("%H:%M:%S.%f")[:-3]
+            stamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
             for msg in (
                 sep,
                 "SESSION AVSLUTAS",

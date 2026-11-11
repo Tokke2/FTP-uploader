@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# Copyright (c) 2026 Rickard Längkvist
 # ============================================================
 # FTP-Galleri – pip-tillbehor vid start
 # ============================================================
@@ -16,6 +17,7 @@
 # ============================================================
 
 import sys
+import os
 import subprocess
 import threading
 from datetime import datetime
@@ -40,7 +42,8 @@ _IMPORT_NAME = {
 def _log(base, message):
     """Skriv en rad till logs/deps.log. Aldrig krascha."""
     try:
-        path = Path(base) / "logs" / _LOG_NAME
+        from app_paths import logs_dir
+        path = logs_dir() / _LOG_NAME
         path.parent.mkdir(parents=True, exist_ok=True)
         stamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         with path.open("a", encoding="utf-8") as fh:
@@ -284,9 +287,8 @@ def _show_progress(base, jobs):
     root.title("FTP-Galleri")
     root.resizable(False, False)
     try:
-        ico = Path(base) / "icon" / "icon.ico"
-        if ico.is_file():
-            root.iconbitmap(str(ico))
+        from app_icon import apply_tk_window_icon
+        apply_tk_window_icon(root)
     except Exception:
         pass
     try:
@@ -391,8 +393,26 @@ def _show_progress(base, jobs):
     return state["ok"], state["failed"]
 
 
+def ensure_bootstrap(base_dir=None):
+    """No version check/upgrade on startup; install only genuinely missing packages."""
+    base = Path(base_dir) if base_dir else Path(__file__).resolve().parent
+    req = base / 'requirements.txt'
+    if not req.is_file():
+        return True
+    jobs = [(name, None, 'saknas') for name, version in _parse_requirements(req)
+            if _installed_version(name) is None]
+    if not jobs:
+        return True
+    if not _ensure_pip(base):
+        _log(base, 'FEL: pip saknas vid första installationen.')
+        return False
+    if os.environ.get('FTP_UPLOADER_SILENT_RESTART') == '1':
+        return all(_run_pip(name)[0] for name, version, reason in jobs)
+    return _show_progress(base, jobs)[0]
+
+
 def ensure_requirements(base_dir=None):
-    """Check/install/upgrade every declared package on every startup."""
+    """Check/install/upgrade every declared package during scheduled maintenance."""
     hide_console()
     base = Path(base_dir) if base_dir else Path(__file__).resolve().parent
     req = base / "requirements.txt"
@@ -401,14 +421,25 @@ def ensure_requirements(base_dir=None):
         return True
 
     specs = _parse_requirements(req)
-    # Ask pip's resolver for the newest stable compatible release on EVERY start.
+    # Ask pip's resolver for the newest stable compatible release during weekly maintenance.
     # Ignore historical pins: the user explicitly opts for rolling dependencies.
     jobs = [(name, None, "kontrollerar senaste stabila version") for name, ver in specs]
     if not _ensure_pip(base):
-        from tkinter import messagebox
-        messagebox.showerror("Python-tillägg", "pip saknas och kunde inte installeras.")
+        if os.environ.get('FTP_UPLOADER_SILENT_RESTART') != '1':
+            from tkinter import messagebox
+            messagebox.showerror("Python-tillägg", "pip saknas och kunde inte installeras.")
+        _log(base, "pip saknas och kunde inte installeras.")
         return False
-    ok, failed = _show_progress(base, jobs)
+    if os.environ.get('FTP_UPLOADER_SILENT_RESTART') == '1':
+        failed = []
+        for name, version, reason in jobs:
+            success, detail = _run_pip(name)
+            _log(base, '%s: %s' % (name, detail))
+            if not success:
+                failed.append(name)
+        ok = not failed
+    else:
+        ok, failed = _show_progress(base, jobs)
     import importlib
     importlib.invalidate_caches()
     return ok

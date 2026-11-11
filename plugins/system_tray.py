@@ -22,7 +22,7 @@
 #             när after()-anropet LYCKAS (alltså alltid), inte när pystray
 #             saknas. Följd i loggen 2026-09-21 09:14: falsk VARNING
 #             "pystray/Pillow saknas" fast båda var installerade, OCH
-#             app.after(200, app.show_window) tvingade fönstret synligt vid
+#             app.after(200, app.minimize_startup) tvingade fönstret synligt vid
 #             varje start trots start_minimized=true (visas 200 ms,
 #             minimeras sedan 400 ms → flimmer). Nu: varning + visning bara
 #             när TRAY_AVAILABLE är False, och ägarskapsövertagandet
@@ -222,7 +222,7 @@ class SystemTrayPlugin(BasePlugin):
         "minimize_to_tray":   True,
         "close_to_tray":      True,
         "start_with_windows": False,
-        "start_minimized":    False,
+        "start_minimized":    True,
         "show_notifications": True,
     }
 
@@ -456,7 +456,7 @@ class SystemTrayPlugin(BasePlugin):
                 "Wayland detekterat - systray kan vara otillgangligt. "
                 "Visar fonstret direkt."
             )
-            app.after(200, app.show_window)
+            app.after(200, app.minimize_startup)
             self.log(
                 "OK",
                 "%s v%s (Wayland-lage)" % (self.PLUGIN_NAME, self.VERSION)
@@ -485,15 +485,10 @@ class SystemTrayPlugin(BasePlugin):
                 "VARNING",
                 "pystray/Pillow saknas - pip install pystray Pillow"
             )
-            app.after(200, app.show_window)
+            app.after(200, app.minimize_startup)
 
-        # -- 6. Start minimerad --------------------------------
-        if "--minimized" in sys.argv or \
-                self.settings.get("start_minimized", False):
-            if TRAY_AVAILABLE and self._tray_running:
-                app.after(400, self.minimize_to_tray)
-            else:
-                app.after(200, app.show_window)
+        # Main owns minimized startup; never re-hide a second-launch activation.
+        self.settings['start_minimized'] = True
 
         # -- Tema-callback (C1) --------------------------------
         self.register_theme_callback()
@@ -657,7 +652,7 @@ class SystemTrayPlugin(BasePlugin):
             self._schedule_visibility_check()
         except Exception as e:
             self.log_error("Kunde inte starta systray", e)
-            self.app.after(0, self.app.show_window)
+            self.app.after(0, self.app.minimize_startup)
 
     def _schedule_visibility_check(self, attempt: int = 1) -> None:
         """
@@ -695,7 +690,7 @@ class SystemTrayPlugin(BasePlugin):
                 "ar nubar." % self._icon_source
             )
             try:
-                self.app.after(0, self.app.show_window)
+                self.app.after(0, self.app.minimize_startup)
             except Exception:
                 pass
             return
@@ -769,7 +764,7 @@ class SystemTrayPlugin(BasePlugin):
             self._tray_running = False
             self._tray_visible = False   # P14-12
             try:
-                self.app.after(0, self.app.show_window)
+                self.app.after(0, self.app.minimize_startup)
             except Exception:
                 pass
 
@@ -838,7 +833,10 @@ class SystemTrayPlugin(BasePlugin):
             ),
         )
 
+        from tray_status import status_text
         return Menu(
+            MenuItem(lambda item: 'Status: ' + status_text(self.app), None, enabled=False),
+            Menu.SEPARATOR,
             MenuItem(
                 "Visa Gallery Uploader",
                 self._tray_show,
@@ -846,6 +844,7 @@ class SystemTrayPlugin(BasePlugin):
             ),
             Menu.SEPARATOR,
             MenuItem("Kor pipeline",        self._tray_run_pipeline),
+            MenuItem("Sök efter uppdateringar", self._tray_check_updates),
             Menu.SEPARATOR,
             MenuItem("Tema",                tema_menu),
             MenuItem("Installningar",        self._tray_show_settings),
@@ -853,6 +852,10 @@ class SystemTrayPlugin(BasePlugin):
             Menu.SEPARATOR,
             MenuItem("Avsluta",              self._tray_quit),
         )
+
+    def _tray_check_updates(self, icon=None, item=None) -> None:
+        from auto_update import request_from_tray
+        request_from_tray(self.app)
 
     def _tray_show(self, icon=None, item=None) -> None:
         """Visa fonstret (systemtray-klick)."""
@@ -1000,83 +1003,29 @@ class SystemTrayPlugin(BasePlugin):
     # ==========================================================================
 
     def is_autostart_enabled(self) -> bool:
-        """Kontrollera om autostart ar aktiverat i Windows-registret."""
-        if not AUTOSTART_AVAILABLE:
-            return False
-        try:
-            key = winreg.OpenKey(
-                winreg.HKEY_CURRENT_USER, AUTOSTART_KEY,
-                0, winreg.KEY_READ
-            )
-            try:
-                winreg.QueryValueEx(key, AUTOSTART_NAME)
-                return True
-            except FileNotFoundError:
-                return False
-            finally:
-                winreg.CloseKey(key)
-        except Exception as e:
-            self.log("DEBUG", "is_autostart_enabled: %s" % e)
-            return False
+        from windows_autostart import registered
+        return bool(registered())
 
     def set_autostart(self, enable: bool) -> bool:
-        """
-        Aktivera/inaktivera autostart via Windows-registret.
-        Returnerar True vid lyckat resultat.
-        """
-        if not AUTOSTART_AVAILABLE:
-            messagebox.showwarning(
-                "Ej tillganglig", "Autostart kraver Windows."
-            )
-            return False
         try:
-            key = winreg.OpenKey(
-                winreg.HKEY_CURRENT_USER, AUTOSTART_KEY,
-                0, winreg.KEY_SET_VALUE
-            )
-            try:
-                if enable:
-                    cmd = self._build_autostart_command()
-                    winreg.SetValueEx(
-                        key, AUTOSTART_NAME, 0, winreg.REG_SZ, cmd
-                    )
-                    self.log("OK", "Autostart aktiverad: %s" % cmd)
-                else:
-                    try:
-                        winreg.DeleteValue(key, AUTOSTART_NAME)
-                    except FileNotFoundError:
-                        pass
-                    self.log("INFO", "Autostart inaktiverad")
-                self.settings["start_with_windows"] = enable
-                self._save_settings()
-                return True
-            finally:
-                winreg.CloseKey(key)
-        except PermissionError:
-            messagebox.showerror(
-                "Behorighetsfel",
-                "Kor som administrator for att andra autostart."
-            )
-            return False
-        except Exception as e:
-            self.log_error("Autostart", e)
+            from main_guards import set_autostart
+            if not set_autostart(enable):
+                return False
+            self.settings["start_with_windows"] = enable
+            self.app.settings["autostart"] = enable
+            variable = getattr(self.app, '_autostart_var', None)
+            if variable is not None:
+                variable.set(enable)
+            self._save_settings()
+            self.app.save_all_settings()
+            return True
+        except Exception as exc:
+            self.log_error("Autostart", exc)
             return False
 
     def _build_autostart_command(self) -> str:
-        """Bygg kommandostrang for autostart-post i registret."""
-        if getattr(sys, "frozen", False):
-            cmd = '"%s"' % sys.executable
-        else:
-            # Startskriptet är main.pyw (v2.6.0-omdöpning). Fallback till
-            # main.py om en äldre kopia finns kvar.
-            root = Path(__file__).parent.parent
-            script = root / "main.pyw"
-            if not script.exists():
-                script = root / "main.py"
-            cmd    = '"%s" "%s"' % (sys.executable, script.resolve())
-        if self.settings.get("start_minimized", False):
-            cmd += " --minimized"
-        return cmd
+        from windows_autostart import command
+        return command()
 
     # ==========================================================================
     # INSTALLNINGSDIALOG
@@ -1168,15 +1117,15 @@ class SystemTrayPlugin(BasePlugin):
         if AUTOSTART_AVAILABLE:
             autostart_var = tk.BooleanVar(value=current_auto)
             start_min_var = tk.BooleanVar(
-                value=self.settings.get("start_minimized", False)
+                value=True
             )
             ttk.Checkbutton(
                 auto_lf, text="Starta med Windows",
                 variable=autostart_var,
             ).pack(anchor=tk.W, pady=2)
             ttk.Checkbutton(
-                auto_lf, text="Starta minimerad",
-                variable=start_min_var,
+                auto_lf, text="Starta alltid minimerad",
+                variable=start_min_var, state="disabled",
             ).pack(anchor=tk.W, pady=2)
         else:
             self._mk_label(
@@ -1197,7 +1146,7 @@ class SystemTrayPlugin(BasePlugin):
                 self.settings["show_notifications"] = notify_var.get()
             if AUTOSTART_AVAILABLE:
                 new_auto = autostart_var.get()
-                self.settings["start_minimized"] = start_min_var.get()
+                self.settings["start_minimized"] = True
                 if new_auto != current_auto:
                     self.set_autostart(new_auto)
             self._save_settings()

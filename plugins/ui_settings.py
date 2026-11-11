@@ -494,6 +494,7 @@ class SettingsUI(GeneratedGalleryMixin, BasePlugin):
 
         # Ladda installningar
         self.load_settings()
+        self._saved_settings_snapshot = self._collect_settings()
 
         # Registrera
         app.context["_settings"] = self
@@ -900,7 +901,28 @@ class SettingsUI(GeneratedGalleryMixin, BasePlugin):
             variable=self.auto_rotate_var,
         ).grid(row=4, column=1, sticky=tk.W, padx=10, pady=8)
 
+        from .web_image_assets import create_controls
+        web_options = ttk.Frame(frame)
+        web_options.grid(row=5, column=0, columnspan=3, sticky=tk.EW, pady=8)
+        self.responsive_images_var, self.download_mode_var = create_controls(web_options, {})
+        from .gallery_checks import create_cover_controls
+        self.cover_image_var, self.public_url_var = create_cover_controls(web_options, {})
+        from .logo_watermark import create_controls as watermark_controls
+        self.watermark_enabled_var, self.watermark_logo_var, self.watermark_opacity_var = watermark_controls(web_options)
+        ttk.Button(web_options, text='Öppna länkkontroll',
+                   command=self.open_link_report).pack(anchor='w', pady=4)
+        ttk.Button(web_options, text='Öppna bildoptimeringsrapport',
+                   command=self.open_optimization_report).pack(anchor='w', pady=4)
+
         frame.columnconfigure(1, weight=1)
+
+    def open_link_report(self):
+        from .gallery_checks import open_link_report
+        open_link_report(self.app, self.app.context.get('link_report_path'))
+
+    def open_optimization_report(self):
+        from .web_image_assets import open_report
+        open_report(self.app, self.app.context.get('optimization_report_path'))
 
     def create_ftp_section(self) -> None:
         """FTP-konfiguration. Losenord sparas ALDRIG."""
@@ -1169,7 +1191,15 @@ class SettingsUI(GeneratedGalleryMixin, BasePlugin):
         Delas av save_settings() och cleanup() sa att de aldrig
         kan driva isar. FTP-losenord ingar ALDRIG.
         """
+        from .web_image_assets import download_mode
         return {
+            "watermark_enabled": self.watermark_enabled_var.get(),
+            "watermark_logo": self.watermark_logo_var.get().strip(),
+            "watermark_opacity": self.watermark_opacity_var.get(),
+            "cover_image": self.cover_image_var.get(),
+            "public_url": self.public_url_var.get().strip(),
+            "responsive_images": self.responsive_images_var.get(),
+            "download_mode": download_mode(self.download_mode_var.get()),
             "folder":         self.folder_var.get(),
             "title":          self.title_var.get(),
             "description":    self.desc_var.get(),
@@ -1189,6 +1219,10 @@ class SettingsUI(GeneratedGalleryMixin, BasePlugin):
             },
         }
 
+    def has_unsaved_changes(self):
+        return (self._collect_settings() != getattr(self, '_saved_settings_snapshot', None)
+                or bool(self.ftp_pass_var.get()))
+
     def save_settings(self) -> None:
         """Spara till config/settings.json. Losenord sparas ALDRIG."""
         folder = self.folder_var.get()
@@ -1200,6 +1234,7 @@ class SettingsUI(GeneratedGalleryMixin, BasePlugin):
             )
         data = self._collect_settings()
         if self.save_config("settings.json", data):
+            self._saved_settings_snapshot = data
             self.log("OK", "Installningar sparade")
             messagebox.showinfo("Sparat", "Installningarna har sparats!")
         else:
@@ -1240,6 +1275,15 @@ class SettingsUI(GeneratedGalleryMixin, BasePlugin):
         self.quality_var.set(s.get("quality",       85))
         self.preserve_exif_var.set(s.get("preserve_exif", False))
         self.auto_rotate_var.set(s.get("auto_rotate",     True))
+        from .web_image_assets import export_options, DOWNLOAD_LABELS
+        options = export_options(s)
+        self.watermark_enabled_var.set(s.get('watermark_enabled') is True)
+        self.watermark_logo_var.set(s.get('watermark_logo') or '')
+        self.watermark_opacity_var.set(s.get('watermark_opacity', 70))
+        self.cover_image_var.set(str(s.get('cover_image', 1)))
+        self.public_url_var.set(s.get('public_url') or '')
+        self.responsive_images_var.set(options['responsive_images'])
+        self.download_mode_var.set(DOWNLOAD_LABELS[options['download_mode']])
 
         ftp = s.get("ftp", {})
         self.ftp_enabled_var.set(ftp.get("enabled", False))
@@ -1252,6 +1296,7 @@ class SettingsUI(GeneratedGalleryMixin, BasePlugin):
 
         self.toggle_ftp_fields()
         self.update_quality_label()
+        self._saved_settings_snapshot = self._collect_settings()
         self.log("INFO", "Installningar laddade")
 
     def reset_defaults(self) -> None:
@@ -1270,6 +1315,14 @@ class SettingsUI(GeneratedGalleryMixin, BasePlugin):
         self.quality_var.set(85)
         self.preserve_exif_var.set(False)
         self.auto_rotate_var.set(True)
+        from .web_image_assets import DOWNLOAD_LABELS
+        self.watermark_enabled_var.set(False)
+        self.watermark_logo_var.set('')
+        self.watermark_opacity_var.set(70)
+        self.cover_image_var.set('1')
+        self.public_url_var.set('')
+        self.responsive_images_var.set(True)
+        self.download_mode_var.set(DOWNLOAD_LABELS['off'])
         self.ftp_enabled_var.set(False)
         self.ftp_server_var.set("")
         self.ftp_user_var.set("")
@@ -1514,7 +1567,15 @@ class SettingsUI(GeneratedGalleryMixin, BasePlugin):
                 if item["relative_path"] not in context["files_to_upload"]:
                     context["files_to_upload"].append(item["relative_path"])
 
+        from .web_image_assets import download_mode
         context["gallery"] = {
+            "watermark_enabled": self.watermark_enabled_var.get(),
+            "watermark_logo": self.watermark_logo_var.get().strip(),
+            "watermark_opacity": self.watermark_opacity_var.get(),
+            "cover_image": self.cover_image_var.get(),
+            "public_url": self.public_url_var.get().strip(),
+            "responsive_images": self.responsive_images_var.get(),
+            "download_mode": download_mode(self.download_mode_var.get()),
             "title":          self.title_var.get(),
             "description":    self.desc_var.get(),
             "theme":          self.theme_var.get(),

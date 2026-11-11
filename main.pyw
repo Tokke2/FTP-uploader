@@ -132,6 +132,22 @@ if sys.platform == "win32":
     except Exception:
         pass
 
+# Claim the process identity before Tk, package installation or startup logs.
+if __name__ == "__main__":
+    from python_discovery import select_for_start
+    from pathlib import Path as _StartupPath
+    select_for_start(_StartupPath(__file__))
+
+from single_instance import ensure_primary
+if __name__ == "__main__" and ensure_primary() is None:
+    sys.exit(0)
+
+try:
+    from log_archive import prepare_logs
+    prepare_logs()
+except Exception:
+    pass
+
 import tkinter as tk
 from tkinter import ttk, messagebox
 import importlib
@@ -157,9 +173,9 @@ try:
 except Exception:
     pass
 try:
-    from ensure_deps import ensure_requirements, hide_console
+    from ensure_deps import ensure_bootstrap, hide_console
     hide_console()
-    ensure_requirements(BASE_DIR)
+    ensure_bootstrap(BASE_DIR)
     hide_console()
 except Exception as exc:
     messagebox.showerror("Python-tillägg", "Kontrollen av Python-tillägg misslyckades:\n%s" % exc)
@@ -215,7 +231,6 @@ try:
         log_startup,
         log_startup_exc,
         log_startup_crash,
-        SingleInstanceLock,
         SystrayManager,
         ThemeEngine,
         TabVisibilityManager,
@@ -320,34 +335,26 @@ class App(tk.Tk):
     """
 
     def __init__(self):
-        super().__init__()
+        super().__init__(className="FTP-uploader")
+        self._startup_open_requested = False
 
         # ── 0. Startlogg (v2.7.0) ─────────────────────────────
         reset_startup_log()
         log_startup("0. App-konstruktor", "startar")
+        log_startup("Programkopia", "version=%s mapp=%s Python=%s" % (APP_VERSION, BASE_DIR, sys.executable))
 
         # ── 1. Dölj OMEDELBART ────────────────────────────────
         self.withdraw()
         log_startup("1. Fönster dolt (withdraw)", "rejält dolt tills vi väljer att visa")
 
-        # ── 2. Single-instance (A6: trigger-fil + fokus) ──────
-        self._instance_lock = SingleInstanceLock(port=LOCK_PORT)
-        self._show_trigger  = get_base_path() / SHOW_TRIGGER_FILE
-        if not self._instance_lock.acquire():
-            # Andra instansen: be huvudinstansen visa sitt fönster
-            log_startup("2. Single-instance", "ANDRA INSTANS → beordrar huvudinstansen att visa (skriver %s) och avslutar" % SHOW_TRIGGER_FILE)
-            try:
-                self._show_trigger.write_text("show", encoding="utf-8")
-            except Exception:
-                pass
-            messagebox.showwarning(
-                APP_NAME,
-                "%s körs redan.\nFönstret visas nu – kontrollera systemfältet."
-                % APP_NAME,
-            )
+        # The launcher already owns this same guard. Direct main.pyw starts
+        # acquire it before importing Tk; constructor use remains protected too.
+        self._instance_lock = ensure_primary()
+        self._show_trigger = get_base_path() / SHOW_TRIGGER_FILE
+        if self._instance_lock is None:
             self.destroy()
             sys.exit(0)
-        log_startup("2. Single-instance", "erhölls (enda instans)")
+        log_startup("2. Single-instance", "erhölls (enda instans, IPC aktiverat)")
 
         # ── 3. Mappar (M9: via BASE_DIR, aldrig cwd) ────────────
         for folder in ("config", "logs", "assets", "icon", "plugins"):
@@ -370,6 +377,9 @@ class App(tk.Tk):
 
         # ── 4. State ──────────────────────────────────────────
         self.context             = {}
+        from tray_status import TrayStatus
+        self.context['_tray_status'] = TrayStatus()
+        self.context['_tray_status'].attach(self)
         self.plugins             = {}
         self.plugin_enabled      = {}
         self.tab_frames          = {}
@@ -415,7 +425,7 @@ class App(tk.Tk):
         self.bind("<Unmap>", self._minimize_to_tray.on_unmap, add="+")
 
         # ── 10b. Trigger-poll (A6) ────────────────────────────
-        self.after(1000, self._poll_show_trigger)
+        self.after(200, self._poll_show_trigger)
 
         # ── 11. Plugins ───────────────────────────────────────
         _load_exc = []
@@ -448,22 +458,16 @@ class App(tk.Tk):
         except Exception as exc:
             log_startup_exc("14. Autostart-synk", exc)
 
-        # ── 15. Systray / visa fönster ────────────────────────
-        # start_minimized=True (standard): starta DOLD till systemfältet.
-        # start_minimized=False: visa fönstret strax efter start.
+        # Always start minimized, irrespective of legacy saved settings.
+        self.settings['start_minimized'] = True
         self._systray_mgr = None
-        start_minimized = self.settings.get("start_minimized", True)
-        log_startup("15. Visa fönster?", "HAS_SYSTRAY=%s start_minimized=%s" % (HAS_SYSTRAY, start_minimized))
         if HAS_SYSTRAY:
             self._start_systray()
-            if not start_minimized:
-                log_startup("15. Visa fönster?", "systray finns, start_minimized=False → show_window om 400 ms")
-                self.after(400, self.show_window)
-            else:
-                log_startup("15. Visa fönster?", "start_minimized=True → FÖNSTRET DÖLJT; visas endast via systray-klick/trigger")
-        else:
-            log_startup("15. Visa fönster?", "INGEN systray (HAS_SYSTRAY=False) → show_window om 100 ms")
-            self.after(100, self.show_window)
+        from window_tray import finish_minimized_startup
+        self.after(100, lambda: finish_minimized_startup(self))
+        if '--show' in sys.argv:
+            self.after(0, self.show_window)  # Explicit recovery action, not normal startup.
+
 
         # ── 15b. Systray-resultat ─────────────────────────────
         log_startup("15b. Systray", "instans skapad" if self._systray_mgr is not None else "EJ skapad (ingen, eller föll till show_window)")
@@ -594,6 +598,8 @@ class App(tk.Tk):
                                  show_update_settings(self, BASE_DIR))
         self.help_menu = tk.Menu(self.menubar, tearoff=0)
         self.menubar.add_cascade(label="Hjälp", menu=self.help_menu)
+        from local_learning import show_learning
+        self.help_menu.add_command(label="Lärande och förslag", command=lambda: show_learning(self))
         self.help_menu.add_command(
             label="Om %s" % APP_NAME,
             command=self._show_about,
@@ -602,6 +608,16 @@ class App(tk.Tk):
             label="📂 Öppna loggmapp",
             command=self._open_log_folder,
         )
+        self.help_menu.add_command(
+            label="Öppna samlad fellogg",
+            command=self._open_error_summary,
+        )
+        from unresolved_errors import show_unresolved
+        self.help_menu.add_command(label="Aktiva fel / markera åtgärdade",
+                                   command=lambda: show_unresolved(self))
+        from python_runtime import show_python_status
+        self.help_menu.add_command(label="Kontrollera / uppgradera Python",
+                                   command=lambda: show_python_status(self))
 
     def _adaptive_geometry(self) -> str:
         """
@@ -648,6 +664,9 @@ class App(tk.Tk):
         try:
             src = apply_tk_window_icon(self)
             log_startup("9b. Fönsterikon", src or "applicerad")
+            if sys.platform == "win32":
+                from windows_autostart import install_app_shortcut
+                install_app_shortcut()
         except Exception as exc:
             safe_write("[IKON] Kunde inte sätta fönsterikon: %s" % exc)
 
@@ -782,21 +801,35 @@ class App(tk.Tk):
         BUG-002 fix: None-returvärde ignoreras
         (context ersätts bara om result is not None).
         """
-        for name, plugin in self.get_plugins(only_enabled=True):
-            if not hasattr(plugin, "execute"):
-                continue
-            if log_func:
-                log_func("→ %s" % plugin.PLUGIN_NAME)
-            try:
-                result = plugin.execute(self.context, log_func)
-                if result is not None:   # BUG-002
-                    self.context = result
-            except Exception as exc:
-                msg = "[FEL] %s: %s" % (name, exc)
+        self._pipeline_busy = getattr(self, '_pipeline_busy', 0) + 1
+        status = self.context.get('_tray_status')
+        token = status.begin() if status is not None else None
+        failed = False
+        try:
+            for name, plugin in self.get_plugins(only_enabled=True):
+                if not hasattr(plugin, "execute"):
+                    continue
+                if status is not None:
+                    status.stage(plugin.PLUGIN_NAME)
                 if log_func:
-                    log_func(msg)
-                self._log_error(msg, traceback.format_exc())
-                raise
+                    log_func("→ %s" % plugin.PLUGIN_NAME)
+                try:
+                    result = plugin.execute(self.context, log_func)
+                    if result is not None:   # BUG-002
+                        self.context = result
+                except Exception as exc:
+                    msg = "[FEL] %s: %s" % (name, exc)
+                    if log_func:
+                        log_func(msg)
+                    self._log_error(msg, traceback.format_exc())
+                    raise
+        except BaseException:
+            failed = True
+            raise
+        finally:
+            if status is not None:
+                status.finish(token, failed)
+            self._pipeline_busy -= 1
 
     def _run_pipeline_safe(self) -> None:
         """Kör pipeline i bakgrundstråd – blockerar inte UI (A12)."""
@@ -861,7 +894,7 @@ class App(tk.Tk):
             k: v for k, v in self.context.items()
             if k in (
                 "gallery", "ftp_settings", "ftp_enabled",
-                "selected_folder", "sorted_images",
+                "selected_folder", "sorted_images", "_tray_status",
             )
         }
 
@@ -916,6 +949,7 @@ class App(tk.Tk):
 
     def show_window(self) -> None:
         """Visa fönstret (från systray-klick eller fallback)."""
+        self._startup_open_requested = True
         log_startup("show_window", "anropad → deiconify+lift+focus_force")
         try:
             self._check_screen_bounds()
@@ -924,7 +958,15 @@ class App(tk.Tk):
         self.deiconify()
         self.lift()
         self.focus_force()
+        from app_icon import focus_app_window
+        focus_app_window(self)
         log_startup("show_window", "klar – is_visible=%s" % (self.state() == "normal"))
+
+    def minimize_startup(self):
+        """Reachable native taskbar fallback; never undo an explicit activation."""
+        if not self._startup_open_requested:
+            self.deiconify()
+            self.iconify()
 
     def hide_to_tray(self) -> None:
         """Minimera till systray. Sparar position."""
@@ -1004,7 +1046,7 @@ class App(tk.Tk):
 
         # ── 6. Ta bort trigger-fil (A6) ───────────────────────
         try:
-            if self._show_trigger.exists():
+            if self._instance_lock.consume_show_request() or self._show_trigger.exists():
                 self._show_trigger.unlink()
         except Exception:
             pass
@@ -1179,7 +1221,7 @@ class App(tk.Tk):
         except Exception as exc:
             log_startup_exc("_poll_show_trigger", exc)
         try:
-            self.after(1000, self._poll_show_trigger)
+            self.after(200, self._poll_show_trigger)
         except Exception:
             pass
 
@@ -1467,7 +1509,7 @@ class App(tk.Tk):
                 "15. _start_systray",
                 "FEL → fallback show_window om 100 ms",
             )
-            self.after(100, self.show_window)
+            self.after(100, self.minimize_startup)
 
     # ==========================================================================
     # AUTOSTART (A11 – starta med Windows, minimerad till systemfältet)
@@ -1493,7 +1535,13 @@ class App(tk.Tk):
         settings-flaggan uppdateras (stöds ej). True vid framgång.
         """
         if sys.platform == "win32":
-            return set_autostart(bool(enabled))
+            success = set_autostart(bool(enabled))
+            if success:
+                tray = self.context.get('_system_tray')
+                if tray is not None:
+                    tray.settings['start_with_windows'] = bool(enabled)
+                    tray._save_settings()
+            return success
         self.settings["autostart"] = bool(enabled)
         return True
 
@@ -1523,7 +1571,7 @@ class App(tk.Tk):
             messagebox.showwarning(
                 APP_NAME,
                 "Autostart kunde inte %s.\n"
-                "Stöds på Windows (HKCU Run-nyckel)."
+                "Stöds på Windows (genväg i Autostart-mappen)."
                 % ("aktiveras" if enabled else "avaktiveras"),
             )
 
@@ -1674,7 +1722,7 @@ class App(tk.Tk):
             self.settings["autostart"] = False
             changed = True
 
-        if "start_minimized" not in self.settings:
+        if self.settings.get("start_minimized") is not True:
             self.settings["start_minimized"] = True
             changed = True
 
@@ -1773,9 +1821,23 @@ class App(tk.Tk):
             ),
         )
 
+    def _open_error_summary(self) -> None:
+        from error_summary import summary_path
+        import webbrowser
+        collector = getattr(self, '_error_summary', None)
+        if collector is not None:
+            collector.collect()
+        path = summary_path()
+        path.touch(exist_ok=True)
+        if sys.platform == "win32":
+            os.startfile(path)
+        else:
+            webbrowser.open(path.as_uri())
+
     def _open_log_folder(self) -> None:
         """Öppna logs/-mappen i OS-filhanterare."""
-        log_dir = BASE_DIR / "logs"
+        from app_paths import logs_dir
+        log_dir = logs_dir()
         log_dir.mkdir(exist_ok=True)
         try:
             if sys.platform == "win32":
@@ -1797,4 +1859,8 @@ class App(tk.Tk):
 
 if __name__ == "__main__":
     app = App()
+    from error_summary import ErrorSummary
+    app._error_summary = ErrorSummary().start()
+    from release_scheduler import ReleaseScheduler
+    app._release_scheduler = ReleaseScheduler(app, BASE_DIR)
     app._safe_mainloop()   # M2: vaktad mainloop

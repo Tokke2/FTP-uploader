@@ -30,6 +30,7 @@ import os
 import io
 import shutil
 import traceback
+import app_paths
 from pathlib import Path
 from datetime import datetime
 
@@ -39,7 +40,7 @@ VERSION = "1.0.0"
 BASE_DIR = Path(__file__).resolve().parent
 
 # Kraschlogg (L4: allt under logs/)
-EMERGENCY_LOG = BASE_DIR / "logs" / "crash_emergency.log"
+EMERGENCY_LOG = app_paths.app_dir() / "logs" / "crash_emergency.log"
 try:
     EMERGENCY_LOG.parent.mkdir(parents=True, exist_ok=True)
 except Exception:
@@ -84,11 +85,11 @@ def safe_write(message: str) -> None:
         except (OSError, AttributeError, io.UnsupportedOperation):
             continue
     try:
-        log_dir = BASE_DIR / "logs"
+        log_dir = app_paths.logs_dir()
         log_dir.mkdir(exist_ok=True)
         with open(log_dir / "stderr_fallback.log", "a", encoding="utf-8") as f:
             f.write(
-                "[%s] %s\n" % (datetime.now().strftime("%H:%M:%S"), message)
+                "[%s] %s\n" % (datetime.now().strftime("%Y-%m-%d %H:%M:%S"), message)
             )
     except Exception:
         pass
@@ -156,96 +157,21 @@ AUTOSTART_REG_KEY  = r"Software\Microsoft\Windows\CurrentVersion\Run"
 
 
 def autostart_launcher_cmd() -> str:
-    """
-    Bygg kommando for autostart-nyckeln (HKCU Run).
-
-    Anvander pythonw.exe (inget konsolfonster) om det finns intill
-    sys.executable, annars sys.executable. Skriptet ar main.pyw.
-    Returnerar "" om plattformen inte stods.
-    """
-    if sys.platform != "win32":
-        return ""
-    try:
-        exe = Path(sys.executable)
-        if exe.name.lower() == "python.exe":
-            pyw = exe.with_name("pythonw.exe")
-            if pyw.exists():
-                exe = pyw
-        # Kor aktuellt skript (foljer filens faktiska namn).
-        script = Path(__file__).resolve().parent / "main.pyw"
-        if not script.exists():
-            script = Path(__file__).resolve().parent / "main.py"
-        # Citattecken runt bada for att klara mellanslag i sokvagar
-        return "\"%s\" \"%s\"" % (str(exe), str(script))
-    except Exception:
-        return ""
+    from windows_autostart import command
+    return command()
 
 
 def autostart_registered_value():
-    """
-    Las av det RAW vardet i HKCU Run-nyckeln (R2).
-
-    Returnerar den lagrade kommandostrangen, eller None om nyckeln
-    saknas. Anvands for sjalvlakningen sa att en GAMMAL eller
-    felaktig sokvag upptacks och skrivs om.
-    """
-    if sys.platform != "win32":
-        return None
-    try:
-        import winreg
-        with winreg.OpenKey(
-            winreg.HKEY_CURRENT_USER, AUTOSTART_REG_KEY
-        ) as key:
-            val, _ = winreg.QueryValueEx(key, AUTOSTART_APP_NAME)
-            return val
-    except (OSError, FileNotFoundError):
-        return None
+    from windows_autostart import registered
+    return registered()
 
 
 def set_autostart(enabled: bool) -> bool:
-    """
-    Lagg till/ta bort autostart i HKCU Run (Windows).
-
-    Returnerar:
-      True  - registrering/borttagning lyckades
-      False - misslyckades (eller ej Windows; anroparen hanterar
-              da settings-flaggan sjalv)
-    """
-    if sys.platform != "win32":
-        return False
     try:
-        import winreg
-    except ImportError:
-        return False
-
-    cmd = autostart_launcher_cmd()
-    if not cmd:
-        return False
-    try:
-        if enabled:
-            with winreg.CreateKey(
-                winreg.HKEY_CURRENT_USER, AUTOSTART_REG_KEY
-            ) as key:
-                winreg.SetValueEx(
-                    key, AUTOSTART_APP_NAME, 0,
-                    winreg.REG_SZ, cmd,
-                )
-        else:
-            try:
-                with winreg.OpenKey(
-                    winreg.HKEY_CURRENT_USER,
-                    AUTOSTART_REG_KEY, 0,
-                    winreg.KEY_SET_VALUE,
-                ) as key:
-                    winreg.DeleteValue(key, AUTOSTART_APP_NAME)
-            except FileNotFoundError:
-                pass   # fanns inte - inget att ta bort
-        return True
+        from windows_autostart import set_enabled
+        return set_enabled(enabled)
     except Exception as exc:
-        safe_write(
-            "[AUTOSTART] Kunde inte %s Run-nyckel: %s"
-            % ("satta" if enabled else "ta bort", exc)
-        )
+        safe_write("[AUTOSTART] Kunde inte uppdatera Windows-genvägen: %s" % exc)
         return False
 
 

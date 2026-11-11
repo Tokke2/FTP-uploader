@@ -1,7 +1,9 @@
 # Rolling dependencies: pip checks for the latest stable compatible version
-# at every application start (pip install --upgrade).
+# during weekly maintenance (pip install --upgrade).
 # No prereleases; pip respects each package's Requires-Python metadata.
 Pillow
+resvg-py
+defusedxml
 pystray
 six
 watchdog

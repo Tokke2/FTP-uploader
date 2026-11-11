@@ -384,7 +384,12 @@ INDEX_JS = """
       var offs = [1, -1, 2];
       for (var i = 0; i < offs.length; i++) {
         var it = IMAGES[wrap(idx + offs[i], len)];
-        if (it && it.src) { new Image().src = it.src; }
+        if (it && it.src) {
+          var nearby = new Image();
+          nearby.sizes = "100vw";
+          nearby.srcset = it.srcset || "";
+          nearby.src = it.src;
+        }
       }
     }
 
@@ -399,14 +404,23 @@ INDEX_JS = """
       showError(false);
       setZoom(false);
       if (lbDown) {
-        lbDown.setAttribute("href", item.src || "#");
-        lbDown.classList.toggle("off", !item.src);
+        var download = videoMode() ? "" : (item.download || "");
+        lbDown.hidden = !download;
+        lbDown.style.display = download ? "inline-flex" : "none";
+        if (download) {
+          lbDown.setAttribute("href", download);
+          lbDown.setAttribute("aria-label", item.downloadLabel || "Ladda ned bilden");
+          lbDown.setAttribute("title", item.downloadLabel || "Ladda ned bilden");
+        } else {
+          lbDown.removeAttribute("href");
+        }
       }
 
       stopVideo();
       if (videoMode()) {
         if (lbImg) {
           lbImg.style.display = "none";
+          lbImg.removeAttribute("srcset");
           lbImg.removeAttribute("src");
         }
         if (lbVid) {
@@ -423,6 +437,8 @@ INDEX_JS = """
           spinner(true);
           lbImg.onload = function () { spinner(false); };
           lbImg.onerror = function () { spinner(false); showError(true); };
+          lbImg.sizes = "100vw";
+          lbImg.srcset = item.srcset || "";
           lbImg.src = item.src;
           lbImg.alt = title;
           if (lbImg.complete) { spinner(false); }
@@ -990,6 +1006,8 @@ SLIDESHOW_JS = """
         var img = s ? s.querySelector("img") : null;
         if (img && img.src) {
           var pre = new Image();
+          pre.sizes = img.sizes || "100vw";
+          pre.srcset = img.srcset || "";
           pre.src = img.src;
         }
       }
@@ -1164,7 +1182,7 @@ SLIDESHOW_JS = """
     /* ---- flikbyte: nollstall klockan sa inget hopp sker ---- */
     on(document, "visibilitychange", function () {
       lastTs = 0;
-      if (!document.hidden) { elapsed = 0; }
+      // Preserve elapsed time and the user's manual play/pause choice.
     });
 
     /* ---- J13: temavaxlare (samma val som i galleriet) ---- */

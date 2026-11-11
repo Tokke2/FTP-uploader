@@ -94,9 +94,10 @@ def safe_write(message: str) -> None:
         except (OSError, AttributeError, ValueError):
             continue
     try:
-        Path("logs").mkdir(exist_ok=True)
-        with open("logs/stderr_fallback.log", "a", encoding="utf-8") as f:
-            f.write("%s\n" % message)
+        from app_paths import logs_dir
+        with open(logs_dir() / "stderr_fallback.log", "a", encoding="utf-8") as f:
+            from log_clock import timestamp
+            f.write("[%s] %s\n" % (timestamp(), message))
     except Exception:
         pass
 
@@ -419,38 +420,15 @@ def is_tk9(app=None) -> bool:
 # ============================================================
 
 def resolve_logs_dir(logs_dir=None, project_base=None):
-    """
-    Returnera logs/-mappens Path (A10).
-
-    Prioritet: utpekat logs_dir -> helpers.get_logs_path() ->
-    project_base/logs -> projektrot/logs -> ./logs.
-    Mappen skapas och skrivbarhet provas; första träff vinner.
-    Reser aldrig (returnerar Path(".") i värsta fall).
-    """
-    candidates = []
-    if logs_dir is not None:
-        candidates.append(Path(logs_dir))
-    if _HAS_HELPERS:
-        try:
-            candidates.append(_helpers_logs_path())
-        except Exception:
-            pass
-    if project_base is not None:
-        candidates.append(Path(project_base) / "logs")
-    candidates.append(Path(__file__).parent.parent / "logs")
-    candidates.append(Path("logs"))
-
-    for path in candidates:
-        try:
-            path = Path(path)
-            path.mkdir(parents=True, exist_ok=True)
-            probe = path / ".write_test"
-            probe.write_text("ok", encoding="utf-8")
-            probe.unlink()
-            return path
-        except Exception:
-            continue
-    return Path(".")
+    """All application logs stay in app/logs, never cwd or user data."""
+    import app_paths
+    path = app_paths.app_dir() / "logs"
+    try:
+        path.mkdir(parents=True, exist_ok=True)
+    except OSError:
+        # LogFiles handles an unwritable target; never scatter logs elsewhere.
+        pass
+    return path
 
 
 class LogFiles(object):
@@ -569,24 +547,8 @@ class LogFiles(object):
         return self._rotate("errors_*.log", self.max_errors, "felfil")
 
     def _rotate(self, pattern, keep, label):
-        removed = 0
-        try:
-            files = sorted(
-                self.logs_dir.glob(pattern),
-                key=lambda p: p.stat().st_mtime,
-            )
-            while len(files) >= keep:
-                oldest = files.pop(0)
-                try:
-                    oldest.unlink()
-                    removed += 1
-                except Exception as exc:
-                    safe_write(
-                        "[LogFiles] Kunde inte ta bort %s: %s" % (oldest, exc)
-                    )
-        except Exception as exc:
-            safe_write("[LogFiles] Rotation %s: %s" % (label, exc))
-        return removed
+        """Retention is date-based; never delete today's sessions by file count."""
+        return 0
 
     # -- skrivning ------------------------------------------------
     def write(self, timestamp: str, level: str, message: str) -> bool:
@@ -594,6 +556,8 @@ class LogFiles(object):
         if self._main is None:
             return False
         try:
+            from log_clock import dated
+            timestamp = dated(timestamp)
             with self._lock:
                 self._main.write(
                     "[%s] [%-10s] %s\n" % (timestamp, level, message)
@@ -619,6 +583,8 @@ class LogFiles(object):
         ):
             return False
         try:
+            from log_clock import dated
+            timestamp = dated(timestamp)
             with self._lock:
                 self._error.write(
                     "[%s] [%-10s] %s\n" % (timestamp, lvl, message)
@@ -636,7 +602,7 @@ class LogFiles(object):
             with self._lock:
                 self._error.write(
                     "[%s] %s\n"
-                    % (datetime.now().strftime("%H:%M:%S.%f")[:-3], msg)
+                    % (datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")[:-3], msg)
                 )
         except Exception:
             pass

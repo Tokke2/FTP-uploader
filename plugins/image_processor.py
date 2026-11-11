@@ -183,6 +183,7 @@ class ImageProcessor(BasePlugin):
         Returnerar context (alltid).
         """
         gallery         = context.get("gallery", {})
+        tray_status = context.get('_tray_status')
         progress_cb     = context.get("progress_callback")
         cancel_check    = context.get("cancel_check")
         images_path_str = gallery.get("images_path", "")
@@ -205,6 +206,9 @@ class ImageProcessor(BasePlugin):
             context["processed_images"] = []
             return context
 
+        from .logo_watermark import validate as validate_watermark
+        watermark = validate_watermark(gallery)
+
         # -- Skapa temp-mapp ------------------------------------------------
         temp_dir   = Path(tempfile.mkdtemp(prefix="gallery_"))
         thumbs_dir = temp_dir / "thumbnails"
@@ -226,8 +230,13 @@ class ImageProcessor(BasePlugin):
             "fullsize_max": tuple(fullsize_max) if fullsize_max else None,
             "quality":      quality,
             "auto_rotate":  auto_rotate,
+            "tray_status": tray_status,
+            "watermark": watermark,
         }
 
+        if tray_status is not None:
+            tray_status.stage('Bearbetar')
+            tray_status.progress(0, total)
         self._log(log, "  Bearbetar %d bilder..." % total)
         t0 = time.time()
 
@@ -243,6 +252,8 @@ class ImageProcessor(BasePlugin):
             )
 
         processed = [r for r in results if r]
+        if tray_status is not None and len(processed) < total and not cfg.get('cancelled'):
+            tray_status.issue()
 
         # Slutlig progress
         self._progress(
@@ -296,6 +307,9 @@ class ImageProcessor(BasePlugin):
         total   = len(images)
         for index, img_source in enumerate(images):
             if cancel_check and cancel_check():
+                cfg['cancelled'] = True
+                if cfg.get('tray_status') is not None:
+                    cfg['tray_status'].cancelled()
                 self._log(
                     log,
                     "  [AVBRUTEN] Bildbearbetning avbruten av anvandaren",
@@ -316,6 +330,8 @@ class ImageProcessor(BasePlugin):
             )
 
             results.append(self._process_one(img_source, index, cfg, log))
+            if cfg.get('tray_status') is not None:
+                cfg['tray_status'].progress(index + 1, total)
         return results
 
     def _process_parallel(self, images, cfg, log, progress_cb,
@@ -348,6 +364,9 @@ class ImageProcessor(BasePlugin):
                 aborted = False
                 for fut in as_completed(futures):
                     if cancel_check and cancel_check():
+                        cfg['cancelled'] = True
+                        if cfg.get('tray_status') is not None:
+                            cfg['tray_status'].cancelled()
                         aborted = True
                         for f in futures:
                             f.cancel()
@@ -363,6 +382,8 @@ class ImageProcessor(BasePlugin):
                     except Exception as e:
                         self._log(log, "  [FEL] bild %d: %s" % (i + 1, e))
                     done += 1
+                    if cfg.get('tray_status') is not None:
+                        cfg['tray_status'].progress(done, total)
                     if done % 10 == 0 or done == total:
                         self._log(log, "  [%d/%d]" % (done, total))
                     self._progress(
@@ -443,6 +464,11 @@ class ImageProcessor(BasePlugin):
                     img.thumbnail(
                         cfg["fullsize_max"], Image.Resampling.LANCZOS,
                     )
+                from .logo_watermark import apply_logo
+                marked = apply_logo(img, cfg.get('watermark'))
+                if marked is not img:
+                    img.close()
+                    img = marked
                 full_path = cfg["full_dir"] / out_name
                 img.save(
                     full_path, "JPEG",

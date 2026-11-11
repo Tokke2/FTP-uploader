@@ -106,6 +106,7 @@ class FTPUploader(BasePlugin):
 
         Returnerar context (alltid).
         """
+        tray_status = context.get('_tray_status')
         # ── 1. Kontrollera ftp_enabled ────────────────────────
         if not context.get("ftp_enabled", False):
             if log:
@@ -114,6 +115,8 @@ class FTPUploader(BasePlugin):
                 "success": False,
                 "reason":  "FTP ej aktiverat",
             }
+            if tray_status is not None and context.get('ftp_enabled') and context.get('upload_result', {}).get('success') is False:
+                tray_status.issue()
             return context
 
         # ── 2. FTP-inställningar ──────────────────────────────
@@ -125,6 +128,8 @@ class FTPUploader(BasePlugin):
                 "success": False,
                 "reason":  error,
             }
+            if tray_status is not None and context.get('ftp_enabled') and context.get('upload_result', {}).get('success') is False:
+                tray_status.issue()
             return context
 
         host     = ftp_cfg["host"]
@@ -142,6 +147,8 @@ class FTPUploader(BasePlugin):
                 "success": False,
                 "reason":  "Ingen output-mapp",
             }
+            if tray_status is not None and context.get('ftp_enabled') and context.get('upload_result', {}).get('success') is False:
+                tray_status.issue()
             return context
         output_path = Path(output_raw)
 
@@ -154,6 +161,8 @@ class FTPUploader(BasePlugin):
                 "success": False,
                 "reason":  "Ingen filer",
             }
+            if tray_status is not None and context.get('ftp_enabled') and context.get('upload_result', {}).get('success') is False:
+                tray_status.issue()
             return context
 
         # ── 5. Hjälpfunktioner från context ───────────────────
@@ -188,7 +197,7 @@ class FTPUploader(BasePlugin):
 
             uploaded, failed = self._upload_all(
                 ftp, files, output_path, remote,
-                log, progress_cb, cancel_check
+                log, progress_cb, cancel_check, tray_status
             )
 
             try:
@@ -208,6 +217,8 @@ class FTPUploader(BasePlugin):
                 "uploaded": uploaded,
                 "failed":   failed,
             }
+            if tray_status is not None and context.get('ftp_enabled') and context.get('upload_result', {}).get('success') is False:
+                tray_status.issue()
             return context
 
         except ftplib.error_temp as e:
@@ -219,6 +230,8 @@ class FTPUploader(BasePlugin):
                 "uploaded": uploaded,
                 "failed":   failed,
             }
+            if tray_status is not None and context.get('ftp_enabled') and context.get('upload_result', {}).get('success') is False:
+                tray_status.issue()
             return context
 
         except ConnectionRefusedError:
@@ -231,6 +244,8 @@ class FTPUploader(BasePlugin):
                 "uploaded": uploaded,
                 "failed":   failed,
             }
+            if tray_status is not None and context.get('ftp_enabled') and context.get('upload_result', {}).get('success') is False:
+                tray_status.issue()
             return context
 
         except TimeoutError:
@@ -243,6 +258,8 @@ class FTPUploader(BasePlugin):
                 "uploaded": uploaded,
                 "failed":   failed,
             }
+            if tray_status is not None and context.get('ftp_enabled') and context.get('upload_result', {}).get('success') is False:
+                tray_status.issue()
             return context
 
         except Exception as e:
@@ -254,6 +271,8 @@ class FTPUploader(BasePlugin):
                 "uploaded": uploaded,
                 "failed":   failed,
             }
+            if tray_status is not None and context.get('ftp_enabled') and context.get('upload_result', {}).get('success') is False:
+                tray_status.issue()
             return context
 
         # ── 7. Resultat ───────────────────────────────────────
@@ -287,6 +306,8 @@ class FTPUploader(BasePlugin):
                 % (len(uploaded), total)
             )
 
+        if tray_status is not None and context.get('ftp_enabled') and context.get('upload_result', {}).get('success') is False:
+            tray_status.issue()
         return context
 
     # ==========================================================================
@@ -365,6 +386,7 @@ class FTPUploader(BasePlugin):
         log,
         progress_cb,
         cancel_check,
+        tray_status=None,
     ) -> tuple:
         """
         Ladda upp alla filer.
@@ -378,17 +400,25 @@ class FTPUploader(BasePlugin):
         uploaded = []
         failed   = []
         total    = len(files)
+        if tray_status is not None:
+            tray_status.stage('Laddar upp')
+            tray_status.progress(0, total)
 
         for i, file_rel in enumerate(files):
 
             # Avbryt om cancel_check returnerar True
             if cancel_check and cancel_check():
+                if tray_status is not None:
+                    tray_status.cancelled()
                 if log:
                     log("  [AVBRUTEN] FTP-uppladdning avbruten")
                 break
 
             local_file = output_path / file_rel
             if not local_file.exists():
+                if tray_status is not None:
+                    tray_status.issue()
+                    tray_status.progress(i + 1, total)
                 if log:
                     log("  [VARNING] Lokal fil saknas: %s" % file_rel)
                 failed.append({
@@ -444,6 +474,10 @@ class FTPUploader(BasePlugin):
                         % (i + 1, total, file_rel, error)
                     )
 
+            if tray_status is not None:
+                tray_status.progress(i + 1, total)
+                if failed:
+                    tray_status.issue()
             # Progress-callback
             if progress_cb:
                 pct = int(((i + 1) / total) * 100)

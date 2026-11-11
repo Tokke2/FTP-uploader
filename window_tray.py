@@ -1,3 +1,4 @@
+# Copyright (c) 2026 Rickard Längkvist
 """Convert native window minimization to tray hiding, only with a usable icon."""
 
 
@@ -34,3 +35,25 @@ class MinimizeToTray:
         except Exception:
             # Missing/unsupported tray: leave native minimization intact.
             return
+
+
+def finish_minimized_startup(app, attempt=0):
+    """Wait for a visible tray, otherwise leave a minimized taskbar window."""
+    if getattr(app, '_startup_open_requested', False):
+        return
+    plugin = app.context.get('_system_tray')
+    manager = getattr(app, '_systray_mgr', None)
+    for owner in (plugin, manager):
+        if owner is None:
+            continue
+        icon = getattr(owner, 'tray_icon', None) or getattr(owner, '_icon', None)
+        try:
+            if icon is not None and icon.visible:
+                app.withdraw()
+                return
+        except Exception:
+            pass
+    if attempt >= 25:
+        app.minimize_startup()
+    else:
+        app.after(200, lambda: finish_minimized_startup(app, attempt + 1))

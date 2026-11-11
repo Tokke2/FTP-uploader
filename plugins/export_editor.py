@@ -1,3 +1,4 @@
+# Copyright (c) 2026 Rickard Längkvist
 """Reopen exported galleries without running the upload/processing pipeline."""
 import json
 from html.parser import HTMLParser
@@ -65,9 +66,19 @@ def load_project(folder):
 
 def write_manifest(output, entries, gallery, output_format, context):
     output = Path(output)
-    data = {'version': 1, 'gallery': {key: gallery.get(key) for key in
-            ('title', 'description', 'theme', 'columns')}, 'output_format': output_format,
+    data = {'version': 2, 'gallery': {key: gallery.get(key) for key in
+            ('title', 'description', 'theme', 'columns', 'jpeg_quality')}, 'output_format': output_format,
             'images': [str(Path(entry['full_dst']).relative_to(output).as_posix()) for entry in entries]}
+    from .web_image_assets import export_options
+    from .gallery_checks import cover_options
+    number, url = cover_options(gallery)
+    data['gallery'].update(cover_image=number, public_url=url)
+    data['assets'] = ['cover.jpg'] + [v['src'] for entry in entries for v in entry.get('variants', [])]
+    data['assets'] += [entry['download'] for entry in entries if entry.get('download')]
+    data['gallery'].update(export_options(gallery))
+    # Only exported original copies are portable. Never persist absolute local paths.
+    data['originals'] = {Path(entry['full_dst']).relative_to(output).as_posix(): entry['original_download']
+                         for entry in entries if entry.get('original_download')}
     for key in ('custom_css', 'custom_html_header', 'custom_html_footer'):
         data[key] = context.get(key, '')
     temporary = output / (MANIFEST + '.tmp')
@@ -99,7 +110,25 @@ def save_project(folder, data, images, generator):
         context['gallery'] = dict(data.get('gallery', {}), images_path=str(folder), output_path=str(stage),
                                   output_format=data.get('output_format', 'standard'))
         context['output_format'] = data.get('output_format', 'standard')
+        context['_defer_learning'] = True
         context['sorted_images'] = list(images)
+        # An exported web image is NOT the camera original. Preserve genuine originals
+        # across reordering through the old manifest, and accept newly added local files.
+        exported = {str((folder / name).resolve()) for name in data.get('images', [])}
+        if not exported:
+            _, previous_images = load_project(folder)
+            exported = {str(path.resolve()) for path in previous_images}
+        original_map = {}
+        for name, original in data.get('originals', {}).items():
+            key = str((folder / name).resolve())
+            try:
+                original_map[key] = str(local_file(folder, original))
+            except ValueError:
+                pass  # Missing original must be reported, never silently substituted.
+        context['original_sources'] = {
+            str(Path(image).resolve()): original_map.get(str(Path(image).resolve()), '')
+            if str(Path(image).resolve()) in exported else str(Path(image).resolve())
+            for image in images}
         context['pdf_files'] = list(folder.rglob('*.pdf'))
         context['video_files'] = [p for p in folder.rglob('*') if p.suffix.lower() in generator.VIDEO_FORMATS]
         result = generator.execute(context)
@@ -111,6 +140,9 @@ def save_project(folder, data, images, generator):
         except Exception:
             backup.rename(folder)
             raise
+        from local_learning import record_export
+        if result.get('optimization_report'):
+            record_export(context['gallery'], result['optimization_report'])
         return backup
     finally:
         if stage.exists():
@@ -141,9 +173,29 @@ def open_editor(parent):
     window.minsize(760, 540)
     title = tk.StringVar(value=data.get('gallery', {}).get('title') or '')
     description = tk.StringVar(value=data.get('gallery', {}).get('description') or '')
+    from .web_image_assets import create_controls, download_mode, open_report
+    options_frame = ttk.Frame(window)
+    # Pack below title/description entries after those widgets are created.
+    responsive, download = create_controls(options_frame, data.get('gallery', {}))
+    from .gallery_checks import create_cover_controls, open_link_report
+    cover, public_url = create_cover_controls(options_frame, data.get('gallery', {}))
+    ttk.Button(options_frame, text='Öppna länkkontroll', command=lambda: open_link_report(
+        window, Path(folder) / 'link-report.html')).pack(anchor='w')
+    def snapshot():
+        return (tuple(images), title.get(), description.get(), responsive.get(), download.get(), cover.get(), public_url.get())
+    initial = snapshot()
+    window._has_unsaved_changes = lambda: snapshot() != initial
+
+    def cancel():
+        if not window._has_unsaved_changes() or messagebox.askyesno(
+                'Osparade ändringar', 'Kasta ändringarna och stäng redigeraren?', parent=window):
+            window.destroy()
+
+    window.protocol('WM_DELETE_WINDOW', cancel)
     for text, variable in [('Titel', title), ('Beskrivning', description)]:
         ttk.Label(window, text=text).pack(anchor='w', padx=12)
         ttk.Entry(window, textvariable=variable).pack(fill='x', padx=12, pady=4)
+    options_frame.pack(fill='x', padx=12)
     from PIL import Image, ImageTk, ImageOps
     body = ttk.Panedwindow(window, orient='horizontal')
     body.pack(fill='both', expand=True, padx=12, pady=8)
@@ -247,7 +299,9 @@ def open_editor(parent):
     def save():
         if not messagebox.askyesno('Spara export', 'Skriv om exporten? Den gamla mappen sparas som säkerhetskopia.', parent=window):
             return
-        data.setdefault('gallery', {}).update(title=title.get(), description=description.get())
+        data.setdefault('gallery', {}).update(title=title.get(), description=description.get(),
+                                             responsive_images=responsive.get(), download_mode=download_mode(download.get()),
+                                             cover_image=cover.get(), public_url=public_url.get().strip())
         try:
             backup = save_project(folder, data, images, HtmlGenerator())
             messagebox.showinfo('Sparat', 'Exporten uppdaterad.\nSäkerhetskopia: %s' % backup, parent=window)
@@ -258,6 +312,7 @@ def open_editor(parent):
     buttons = ttk.Frame(window)
     buttons.pack(fill='x', padx=12, pady=12)
     for text, command in [('Lägg till bilder', add), ('Ta bort valda', remove), ('Upp', lambda: move(-1)),
-                          ('Ned', lambda: move(1)), ('Spara export', save), ('Avbryt', window.destroy)]:
+                          ('Ned', lambda: move(1)), ('Bildrapport', lambda: open_report(window, Path(folder) / 'optimization-report.html')),
+                          ('Spara export', save), ('Avbryt', cancel)]:
         ttk.Button(buttons, text=text, command=command).pack(side='left', padx=3)
     refresh()

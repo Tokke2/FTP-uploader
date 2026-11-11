@@ -542,7 +542,7 @@ class VideoProcessor(VideoProcessorUIMixin, BasePlugin):
     def _write_log(self, message: str, tag: str = None) -> None:
         """Skriv till logg i main thread."""
         try:
-            ts = time.strftime("%H:%M:%S")
+            ts = time.strftime("%Y-%m-%d %H:%M:%S")
             self.log_text.insert(
                 tk.END, "[%s] %s\n" % (ts, message), tag or ""
             )

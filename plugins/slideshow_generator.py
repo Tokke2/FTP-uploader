@@ -1,3 +1,4 @@
+# Copyright (c) 2026 Rickard Längkvist
 """Slideshow Generator - Skapar auto-play bildspel med timer"""
 
 # FIL:       plugins/slideshow_generator.py

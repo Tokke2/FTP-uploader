@@ -225,6 +225,7 @@ class CustomCSSEditor(BasePlugin):
 
         # -- Session -------------------------------------------
         self._load_last_session()
+        self._saved_editor_content = self._get_editor_content()
 
         # -- Tema-callback -------------------------------------
         try:
@@ -1168,6 +1169,7 @@ class CustomCSSEditor(BasePlugin):
             "footer": footer,
         }
         self._save_templates_to_disk()
+        self._save_last_session()
         self._update_template_combo()
         self.template_var.set(name)
         self._set_status("Mall sparad: %s" % name, "#3fb950")
@@ -1458,15 +1460,20 @@ CSS-FORHANDSGRANSKNING - %s%s
         except Exception:
             pass
 
+    def has_unsaved_changes(self):
+        return self._get_editor_content() != getattr(self, '_saved_editor_content', None)
+
     def _save_last_session(self) -> None:
         """Spara nuvarande CSS vid avslutning."""
         try:
             css, header, footer = self._get_editor_content()
-            self.save_config("css_last_session.json", {
+            saved = self.save_config("css_last_session.json", {
                 "css":    css,
                 "header": header,
                 "footer": footer,
             })
+            if saved is not False:
+                self._saved_editor_content = (css, header, footer)
         except Exception:
             pass
 

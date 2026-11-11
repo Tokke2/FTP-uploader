@@ -1,3 +1,4 @@
+# Copyright (c) 2026 Rickard Längkvist
 """Small, UI-independent gallery filtering and layout helpers."""
 EXTENSIONS = {
     'JPEG': {'.jpg', '.jpeg'}, 'PNG': {'.png'}, 'GIF': {'.gif'},

@@ -143,10 +143,10 @@ def _safe_write(message: str) -> None:
         except (OSError, AttributeError):
             continue
     try:
-        Path("logs").mkdir(exist_ok=True)
-        with open("logs/base_plugin_errors.log", "a",
+        with open(app_paths.logs_dir() / "base_plugin_errors.log", "a",
                   encoding="utf-8") as f:
-            f.write("%s\n" % message)
+            from log_clock import timestamp
+            f.write("[%s] %s\n" % (timestamp(), message))
     except Exception:
         pass
 
@@ -1087,7 +1087,7 @@ class BasePlugin:
 
     def get_logs_path(self) -> Path:
         """Returnera logs/-mappens Path."""
-        p = self.get_base_path() / "logs"
+        p = app_paths.logs_dir()
         p.mkdir(parents=True, exist_ok=True)
         return p
 

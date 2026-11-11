@@ -1,3 +1,4 @@
+# Copyright (c) 2026 Rickard Längkvist
 """Install stable GitHub Releases using Python only. Never use main or Git."""
 import json
 import os
@@ -48,6 +49,64 @@ def release_commit(tag):
     raise ValueError('För många nästlade releasetaggar.')
 
 
+def managed_file(path):
+    """Same file scope for comparison and installation."""
+    path = Path(path)
+    return ((len(path.parts) == 1 and
+             (path.suffix in ('.py', '.pyw') or path.name == 'requirements.txt'))
+            or (len(path.parts) > 1 and path.parts[0] == 'plugins' and path.suffix == '.py')
+            or (len(path.parts) > 1 and path.parts[0] == 'icon' and path.suffix in ('.png', '.ico')))
+
+
+def release_files(commit):
+    """Read the file hashes of the exact release commit, never a branch."""
+    import re
+    from pathlib import PurePosixPath
+    if not re.fullmatch(r'[0-9a-f]{40}', commit):
+        raise ValueError('Ogiltig release-commit.')
+    url = 'https://api.github.com/repos/Tokke2/FTP-uploader/git/trees/' + commit + '?recursive=1'
+    request = urllib.request.Request(url, headers={'User-Agent': 'FTP-uploader'})
+    with urllib.request.urlopen(request, timeout=20) as response:
+        tree = json.load(response)
+    if tree.get('truncated') or not isinstance(tree.get('tree'), list):
+        raise ValueError('Ofullständig fillista från GitHub.')
+    files = {}
+    for item in tree['tree']:
+        name = item.get('path', '')
+        path = PurePosixPath(name)
+        if path.is_absolute() or '..' in path.parts or ':' in name or '\\' in name:
+            raise ValueError('Ogiltig sökväg i releasefillistan.')
+        if item.get('type') != 'blob' or not managed_file(name):
+            continue
+        if item.get('mode') == '120000':
+            raise ValueError('Symboliska länkar stöds inte.')
+        sha = item.get('sha', '')
+        if not re.fullmatch(r'[0-9a-f]{40}', sha):
+            raise ValueError('Ogiltig filhash i releasefillistan.')
+        files[name] = sha
+    if 'main.pyw' not in files:
+        raise ValueError('Releasefillistan saknar main.pyw.')
+    return files
+
+
+def files_match_release(base, files):
+    """Compare actual file content using Git blob hashes; no Git executable."""
+    import hashlib
+    base = Path(base).resolve()
+    for name, expected in files.items():
+        path = base / name
+        if not path.resolve().is_relative_to(base) or path.is_symlink():
+            return False
+        try:
+            content = path.read_bytes()
+        except OSError:
+            return False
+        blob = b'blob ' + str(len(content)).encode('ascii') + b'\0' + content
+        if hashlib.sha1(blob).hexdigest() != expected:
+            return False
+    return True
+
+
 def check_release(base):
     """Read-only release check using Python's standard library; no Git needed."""
     import re
@@ -66,7 +125,8 @@ def check_release(base):
     except (OSError, ValueError):
         state = {}
     if available == installed and isinstance(state, dict) and state.get('commit') == commit and state.get('tag') == tag:
-        return None
+        if files_match_release(base, release_files(commit)):
+            return None
     # Same version with a moved tag is still an update. Unknown installations
     # are installed once so subsequent checks have a reliable baseline.
     return tag, commit
@@ -151,11 +211,7 @@ def _install_release(base, release):
                         continue
                     relative = Path(*parts[1:])
                     # Explicit installation scope; never import config or exports.
-                    allowed = (len(relative.parts) == 1 and
-                               (relative.suffix in ('.py', '.pyw') or relative.name == 'requirements.txt'))
-                    allowed = allowed or (relative.parts[0] == 'plugins' and relative.suffix == '.py')
-                    allowed = allowed or (relative.parts[0] == 'icon' and relative.suffix in ('.png', '.ico'))
-                    if not allowed:
+                    if not managed_file(relative):
                         continue
                     if relative in files:
                         raise ValueError('Duplicerad fil i releasearkivet.')
@@ -229,6 +285,8 @@ def check_before_start(base, parent=None, manual=False):
         return
     root = tk.Tk() if parent is None else tk.Toplevel(parent)
     root.title('FTP-uploader – uppdateringar')
+    from app_icon import apply_tk_window_icon
+    apply_tk_window_icon(root)
     label = tk.Label(root, text='Kontrollerar stabil GitHub Release …', padx=25, pady=20)
     label.pack()
     root.protocol('WM_DELETE_WINDOW', lambda: None)
@@ -299,3 +357,10 @@ def show_update_settings(parent, base):
         save_update_settings({'mode': mode.get()}), window.destroy())).pack(pady=10)
     ttk.Button(window, text='Sök efter uppdateringar', command=lambda:
                check_before_start(base, parent=window, manual=True)).pack(padx=20, pady=10)
+
+
+def request_from_tray(app):
+    """Tray callbacks run outside Tk: dispatch manual release check to Tk."""
+    def show():
+        check_before_start(Path(__file__).resolve().parent, parent=app, manual=True)
+    app.after(0, show)

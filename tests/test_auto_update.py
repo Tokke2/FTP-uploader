@@ -23,8 +23,14 @@ class UpdateTests(unittest.TestCase):
     def test_current_release(self):
         import json
         (self.base / '.release-state.json').write_text(json.dumps({'tag': 'v2.8.4', 'commit': 'a' * 40}))
-        with patch('auto_update.latest_release', return_value='v2.8.4'):
+        with patch('auto_update.latest_release', return_value='v2.8.4'), patch('auto_update.release_files', return_value={'main.pyw': 'hash'}), patch('auto_update.files_match_release', return_value=True):
             self.assertIsNone(check_release(self.base))
+
+    def test_same_version_and_commit_but_changed_file_updates(self):
+        import json
+        (self.base / '.release-state.json').write_text(json.dumps({'tag': 'v2.8.4', 'commit': 'a' * 40}))
+        with patch('auto_update.latest_release', return_value='v2.8.4'), patch('auto_update.release_files', return_value={'main.pyw': 'b' * 40}):
+            self.assertEqual(check_release(self.base), ('v2.8.4', 'a' * 40))
 
     def test_same_version_changed_commit_updates(self):
         import json

@@ -1378,7 +1378,7 @@ class WatchFolder(BasePlugin):
         (watchdog-callbacks routas via app.after()).
         """
         try:
-            timestamp = datetime.now().strftime("%H:%M:%S")
+            timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             self.log_text.insert(tk.END, "[%s] " % timestamp, "time")
             self.log_text.insert(tk.END, "%s\n" % message, tag)
             self.log_text.see(tk.END)

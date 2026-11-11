@@ -56,3 +56,42 @@ class WindowTrayTests(unittest.TestCase):
         self.app.context.clear()
         self.handler._check()
         self.app.hide_to_tray.assert_not_called()
+
+
+class MinimizedStartupTests(unittest.TestCase):
+    def app(self):
+        return SimpleNamespace(_startup_open_requested=False, context={}, _systray_mgr=None,
+                               withdraw=Mock(), minimize_startup=Mock(), after=Mock())
+
+    def test_visible_tray_hides_startup_window(self):
+        from window_tray import finish_minimized_startup
+        app = self.app()
+        app.context['_system_tray'] = SimpleNamespace(tray_icon=SimpleNamespace(visible=True))
+        finish_minimized_startup(app)
+        app.withdraw.assert_called_once()
+        app.minimize_startup.assert_not_called()
+
+    def test_missing_tray_minimizes_to_taskbar_after_bounded_wait(self):
+        from window_tray import finish_minimized_startup
+        app = self.app()
+        finish_minimized_startup(app, 25)
+        app.minimize_startup.assert_called_once()
+        app.withdraw.assert_not_called()
+        app.after.assert_not_called()
+
+    def test_second_launch_activation_is_never_hidden_again(self):
+        from window_tray import finish_minimized_startup
+        app = self.app()
+        app._startup_open_requested = True
+        finish_minimized_startup(app)
+        app.withdraw.assert_not_called()
+        app.minimize_startup.assert_not_called()
+        app.after.assert_not_called()
+
+    def test_tray_starting_waits_without_opening_window(self):
+        from window_tray import finish_minimized_startup
+        app = self.app()
+        finish_minimized_startup(app)
+        app.after.assert_called_once()
+        app.minimize_startup.assert_not_called()
+        app.withdraw.assert_not_called()
