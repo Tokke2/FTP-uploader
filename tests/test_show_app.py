@@ -48,3 +48,22 @@ class ShowAppTests(unittest.TestCase):
         with patch.object(self.module.socket, 'create_connection', side_effect=ConnectionRefusedError):
             with self.assertRaises(FileNotFoundError):
                 self.module.main()
+
+    def test_connect_timeout_uses_trigger_without_starting_another_process(self):
+        with patch.object(self.module.socket, 'create_connection', side_effect=TimeoutError('timed out')), \
+             patch.object(self.module.subprocess, 'Popen') as spawn:
+            self.module.main()
+            spawn.assert_not_called()
+        self.assertEqual((self.module.BASE / 'instance_show.trigger').read_text(), 'show')
+        log = (self.module.BASE / 'logs/show-app.log').read_text()
+        self.assertIn('fönstervisning är inte bekräftad', log)
+        self.assertNotIn('FEL:', log)
+
+    def test_send_failure_still_uses_compatibility_trigger(self):
+        connection = Mock()
+        connection.__enter__ = Mock(return_value=connection)
+        connection.__exit__ = Mock(return_value=False)
+        connection.sendall.side_effect = ConnectionResetError()
+        with patch.object(self.module.socket, 'create_connection', return_value=connection):
+            self.assertTrue(self.module.show_existing())
+        self.assertTrue((self.module.BASE / 'instance_show.trigger').exists())

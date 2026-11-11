@@ -1205,13 +1205,13 @@ class App(tk.Tk):
 
     def _poll_show_trigger(self) -> None:
         """
-        Polla trigger-filen (var 1000 ms).
+        Läs IPC och kompatibilitetstrigger var 200 ms.
 
         Om en andra instans startats skapar den filen
         instance_show.trigger – då visas och fokuseras fönstret.
         """
         try:
-            if self._show_trigger.exists():
+            if self._instance_lock.consume_show_request() or self._show_trigger.exists():
                 log_startup("_poll_show_trigger", "trigger hittad → show_window")
                 try:
                     self._show_trigger.unlink()

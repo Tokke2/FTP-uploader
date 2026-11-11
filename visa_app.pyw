@@ -20,15 +20,28 @@ def log(message):
         stream.write('[%s] %s\n' % (datetime.now().isoformat(sep=' ', timespec='seconds'), message))
 
 
+def request_legacy_show(reason):
+    # This must run for CONNECT timeouts too: legacy versions never accept()
+    # and their listening backlog can fill after repeated activation attempts.
+    (BASE / 'instance_show.trigger').write_text('show', encoding='utf-8')
+    log('Kompatibilitet: visa-trigger skapad i %s (%s). '
+        'Begäran är skickad, men fönstervisning är inte bekräftad. '
+        'Kontrollera att detta är samma mapp som den körande appen.' % (BASE, reason))
+    return True  # Never launch another instance while the occupied port is uncertain.
+
+
 def show_existing():
     try:
         connection = socket.create_connection(('127.0.0.1', 47200), timeout=2)
     except ConnectionRefusedError:
         return False
+    except (TimeoutError, ConnectionResetError) as exc:
+        return request_legacy_show('anslutningen svarade inte: %s' % type(exc).__name__)
+    reason = 'inget kompatibelt IPC-svar'
     with connection:
-        connection.settimeout(2)
-        connection.sendall(b'FTP-UPLOADER/1 SHOW\n')
         try:
+            connection.settimeout(2)
+            connection.sendall(b'FTP-UPLOADER/1 SHOW\n')
             response = b''
             while len(response) < 128 and not response.endswith(b'\n'):
                 part = connection.recv(1)
@@ -38,17 +51,18 @@ def show_existing():
             if response.startswith(b'FTP-UPLOADER/1 OK '):
                 pid = int(response.split()[-1])
                 if sys.platform == 'win32':
-                    import ctypes
-                    ctypes.windll.user32.AllowSetForegroundWindow(pid)
+                    try:
+                        import ctypes
+                        ctypes.windll.user32.AllowSetForegroundWindow(pid)
+                    except OSError:
+                        pass
                 connection.sendall(b'ACK\n')
-                log('Aktivering skickad till befintlig instans, pid %d.' % pid)
+                log('IPC-begäran skickad till befintlig instans, pid %d. '
+                    'Se startup.log efter show_window för bekräftad UI-hantering.' % pid)
                 return True
-        except socket.timeout:
-            pass
-    # Old versions listen without reading sockets; their UI polls this file.
-    (BASE / 'instance_show.trigger').write_text('show', encoding='utf-8')
-    log('Äldre instans: visa-trigger skapad i %s.' % BASE)
-    return True
+        except (OSError, ValueError) as exc:
+            reason = 'IPC-svaret uteblev/var ogiltigt: %s' % type(exc).__name__
+    return request_legacy_show(reason)
 
 
 def main():

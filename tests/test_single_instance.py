@@ -88,3 +88,49 @@ class InstanceTests(unittest.TestCase):
             guard.return_value.activate_existing.return_value = False
             with self.assertRaises(RuntimeError):
                 single_instance.ensure_primary()
+
+
+class WindowActivationRegressionTests(unittest.TestCase):
+    def test_real_tk_poll_consumes_ipc_without_a_trigger_file(self):
+        import ast
+        from types import SimpleNamespace
+        from unittest.mock import Mock
+        path = Path(__file__).resolve().parents[1] / 'main.pyw'
+        tree = ast.parse(path.read_text())
+        app = next(item for item in tree.body if isinstance(item, ast.ClassDef) and item.name == 'App')
+        method = next(item for item in app.body if isinstance(item, ast.FunctionDef) and item.name == '_poll_show_trigger')
+        scope = {'log_startup': Mock(), 'log_startup_exc': Mock()}
+        exec(compile(ast.Module(body=[method], type_ignores=[]), str(path), 'exec'), scope)
+        fake = SimpleNamespace(_instance_lock=Mock(), _show_trigger=Mock(), show_window=Mock(), after=Mock())
+        fake._instance_lock.consume_show_request.return_value = True
+        fake._show_trigger.exists.return_value = False
+        fake._show_trigger.unlink.side_effect = FileNotFoundError()
+        fake._poll_show_trigger = Mock()
+        scope['_poll_show_trigger'](fake)
+        fake._instance_lock.consume_show_request.assert_called_once()
+        fake.show_window.assert_called_once()
+        fake.after.assert_called_once_with(200, fake._poll_show_trigger)
+        scope['log_startup_exc'].assert_not_called()
+
+    def test_actual_socket_event_reaches_the_real_window_poll(self):
+        import ast
+        from types import SimpleNamespace
+        from unittest.mock import Mock
+        path = Path(__file__).resolve().parents[1] / 'main.pyw'
+        tree = ast.parse(path.read_text())
+        app = next(item for item in tree.body if isinstance(item, ast.ClassDef) and item.name == 'App')
+        method = next(item for item in app.body if isinstance(item, ast.FunctionDef) and item.name == '_poll_show_trigger')
+        scope = {'log_startup': Mock(), 'log_startup_exc': Mock()}
+        exec(compile(ast.Module(body=[method], type_ignores=[]), str(path), 'exec'), scope)
+        guard = SingleInstance(port=0)
+        self.assertTrue(guard.acquire())
+        try:
+            self.assertTrue(SingleInstance(guard.port).activate_existing())
+            self.assertTrue(guard._show.wait(2))
+            fake = SimpleNamespace(_instance_lock=guard, _show_trigger=Mock(), show_window=Mock(), after=Mock(), _poll_show_trigger=Mock())
+            fake._show_trigger.exists.return_value = False
+            scope['_poll_show_trigger'](fake)
+            fake.show_window.assert_called_once()
+            self.assertFalse(guard.consume_show_request())
+        finally:
+            guard.release()

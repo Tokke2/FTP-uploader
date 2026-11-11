@@ -305,3 +305,7 @@ För uttrycklig återställning finns `visa_app.pyw`: lägg den bredvid den `mai
 ## Publiceringspolicy för fortsatt utveckling
 
 Ny färdig kod pushas till den aktuella arbetsgrenen och samma GitHub-release `v1.0.0` uppdateras utan versionsbyte. Ingen push till `main` och inga merges. Release-taggen ska peka på exakt den testade arbetsgrenscommitten; uppdateraren jämför även commit och filhashar för att upptäcka ändringar med samma versionsnummer. GitHub-publicering är ett utvecklarsteg, inte något den installerade appen själv gör.
+
+### Timeout när ett dolt fönster ska visas
+
+Äldre appversioner kan hålla instansporten öppen utan att läsa anslutningar. Efter upprepade försök kan även själva anslutningen få timeout. `visa_app.pyw` använder då triggerfilen även vid anslutnings-/sändningsfel, utan att starta ännu en instans. Loggen skiljer mellan skickad begäran och bekräftad fönsterhantering: kontrollera `show_window` i `logs/startup.log`. Lägg hjälpen i exakt samma programmapp som den körande appen. Den senaste huvudappen läser också IPC-begäran i sin UI-poll, inte vid avslut.
