@@ -590,7 +590,7 @@ class AdvancedLogger(BasePlugin, UiCaptureMixin, DiagWindowMixin,
                     screen_dpi(self.app) or UNKNOWN,
                     self._effective_font_size()))
         self.log("SYSTEM", "Loggfil:  %s" % stats.get("main", UNKNOWN))
-        self.log("SYSTEM", "Felfil:   %s" % stats.get("errors", UNKNOWN))
+        self.log("SYSTEM", "Felfil:   %s" % stats.get("error_file", UNKNOWN))
         free = disk_free_mb(self.logs_dir)
         self.log("SYSTEM" if free < 0 or free >= 500 else "VARNING",
                  "Disk:     %s MB ledigt pa loggdisken (Y6)"

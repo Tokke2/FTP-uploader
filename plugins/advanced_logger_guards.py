@@ -642,7 +642,7 @@ class LogFiles(object):
         return {
             "logs_dir":   str(self.logs_dir),
             "main":       self.main_path.name if self.main_path else UNKNOWN,
-            "errors":     self.error_path.name if self.error_path else UNKNOWN,
+            "error_file": self.error_path.name if self.error_path else UNKNOWN,
             "main_open":  self._main is not None,
             "err_open":   self._error is not None,
             "written":    self.written,

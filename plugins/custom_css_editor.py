@@ -1351,7 +1351,7 @@ gap:20px;padding:28px;max-width:1400px;margin:0 auto}
 .item{background:#16213e;border-radius:12px;overflow:hidden;
 cursor:pointer;transition:transform .3s}
 .item:hover{transform:translateY(-5px)}
-.item img{width:100%;aspect-ratio:1;object-fit:cover;display:block}
+.item img{width:100%%;aspect-ratio:1;object-fit:cover;display:block}
 .item p{padding:10px;text-align:center;font-size:.85em;
 color:#8b949e;white-space:nowrap;overflow:hidden;
 text-overflow:ellipsis}

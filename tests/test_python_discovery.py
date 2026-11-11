@@ -74,6 +74,7 @@ class DiscoveryTests(unittest.TestCase):
              patch.object(discovery.sys, 'argv', ['start.pyw', '--show']), \
              patch.dict(discovery.os.environ, {'PYTHONPATH': '/other', 'VIRTUAL_ENV': '/venv'}), \
              patch.object(discovery.subprocess, 'Popen') as spawn:
+            spawn.return_value.wait.side_effect = subprocess.TimeoutExpired('python', 1)
             with self.assertRaises(SystemExit):
                 discovery.select_for_start(entry)
             args = spawn.call_args

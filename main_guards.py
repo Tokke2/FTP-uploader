@@ -110,6 +110,12 @@ def emergency_excepthook(exc_type, exc_value, exc_tb):
         sys.__excepthook__(exc_type, exc_value, exc_tb)
         return
 
+    try:
+        from startup_diagnostics import report
+        report(exc_type, exc_value, exc_tb, popup=False)
+    except Exception:
+        pass
+
     msg = "".join(
         traceback.format_exception(exc_type, exc_value, exc_tb)
     )

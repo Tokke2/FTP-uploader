@@ -8,6 +8,8 @@ import sys
 
 BASE = Path(__file__).resolve().parent
 sys.path.insert(0, str(BASE))
+from startup_diagnostics import install, phase
+install(BASE)
 
 if __name__ == "__main__":
     try:
@@ -22,11 +24,15 @@ if __name__ == "__main__":
         set_windows_app_id()
         from auto_update import check_before_start
         from app_paths import update_settings
+        phase('Kontrollerar väntande releaseinstallation')
         if update_settings().get('pending_release') and not os.environ.get('FTP_UPLOADER_SILENT_RESTART'):
             check_before_start(BASE)
         # main.pyw is read only after the update has completed.
+        phase('Laddar main.pyw')
         runpy.run_path(str(BASE / "main.pyw"), run_name="__main__")
     except Exception:
+        from startup_diagnostics import report
+        report(*sys.exc_info())
         import traceback
         try:
             from app_paths import logs_dir

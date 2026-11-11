@@ -309,3 +309,17 @@ Ny färdig kod pushas till den aktuella arbetsgrenen och samma GitHub-release `v
 ### Timeout när ett dolt fönster ska visas
 
 Äldre appversioner kan hålla instansporten öppen utan att läsa anslutningar. Efter upprepade försök kan även själva anslutningen få timeout. `visa_app.pyw` använder då triggerfilen även vid anslutnings-/sändningsfel, utan att starta ännu en instans. Loggen skiljer mellan skickad begäran och bekräftad fönsterhantering: kontrollera `show_window` i `logs/startup.log`. Lägg hjälpen i exakt samma programmapp som den körande appen. Den senaste huvudappen läser också IPC-begäran i sin UI-poll, inte vid avslut.
+
+
+## Tidig startdiagnostik och tyst Pythonw-avslut
+
+Felhanteringen installeras nu före Python-sökning, instanslås, Tk-import och paketkontroll även vid direktstart av `main.pyw`. Följande filer ligger i appens `logs/`:
+
+- `startup-early.log`: process-ID, Python-sökväg, programmapp och passerade startsteg. Den skiljer normal vidarestart/aktivering av befintlig app från fönsteruppbyggnad och mainloop.
+- `startup-crash.log`: Python-undantag med full traceback och senaste startsteg. Windows kan visa ett startfel även om Tk inte går att importera.
+- `python-child_ÅÅÅÅMMDD_PID.log`: felutmatning från den nya Pythonw-processen, även syntaxfel som inträffar innan dess egen felhanterare har startat. PID i filnamnet identifierar förälderns startförsök; barnets PID står i `python-discovery.log`.
+- `native_fault_ÅÅÅÅMMDD_PID.log` och vid behov `early_stderr_ÅÅÅÅMMDD_PID.log`: fataldiagnostik respektive tidig stderr när Pythonw saknar konsol. Dessa filer kan vara tomma vid normal körning.
+
+Om barnprocessen avslutas med felkod under första sekunden rapporterar startaren det i stället för att bara avsluta tyst. Saknade beroenden som inte kunde installeras stoppar nu starten med ett tydligt fel; appen fortsätter inte som om paketinstallationen lyckades. Senare mainloop-fel skrivs också i startkraschloggen. Loggarna omfattas av ordinarie datumarkivering/retention. Ett strömavbrott, tvångsavslut eller alla typer av native-krasch kan fortfarande inte garanteras ge en fullständig logg.
+
+Kodgranskningens regressioner: CSS-förhandsvisningen hanterar nu procenttecken korrekt i HTML-mallen. Loggstatistik skiljer på `error_file` (filnamnet) och `errors` (antalet), så startloggen visar inte längre felantalet som felfilens namn.

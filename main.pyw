@@ -120,6 +120,9 @@
 
 import sys
 import os
+from pathlib import Path as _DiagnosticPath
+from startup_diagnostics import install as _install_diagnostics, phase as _startup_phase
+_install_diagnostics(_DiagnosticPath(__file__).resolve().parent)
 
 # STEG 1: dolj konsol FORE tkinter (annars hinner fonstret synas).
 if sys.platform == "win32":
@@ -148,7 +151,9 @@ try:
 except Exception:
     pass
 
+_startup_phase('Importerar Tk')
 import tkinter as tk
+_startup_phase('Tk importerat')
 from tkinter import ttk, messagebox
 import importlib
 import pkgutil
@@ -175,10 +180,15 @@ except Exception:
 try:
     from ensure_deps import ensure_bootstrap, hide_console
     hide_console()
-    ensure_bootstrap(BASE_DIR)
+    _startup_phase('Kontrollerar saknade beroenden')
+    if not ensure_bootstrap(BASE_DIR):
+        raise RuntimeError('Saknade beroenden kunde inte installeras; se logs/deps.log.')
+    _startup_phase('Beroenden klara')
     hide_console()
 except Exception as exc:
-    messagebox.showerror("Python-tillägg", "Kontrollen av Python-tillägg misslyckades:\n%s" % exc)
+    from startup_diagnostics import report as _report_startup
+    _report_startup(type(exc), exc, exc.__traceback__)
+    sys.exit(1)
 
 # ==============================================================================
 # STEG 2: Säker skriv-funktion (M4: flyttad till main_guards.py)
@@ -1092,9 +1102,13 @@ class App(tk.Tk):
             except Exception:
                 pass
         except tk.TclError as exc:
+            from startup_diagnostics import report
+            report(type(exc), exc, exc.__traceback__)
             log_startup("mainloop", "TclError: %s" % exc)
             safe_write("[MAINLOOP] TclError: %s" % exc)
         except Exception as exc:
+            from startup_diagnostics import report
+            report(type(exc), exc, exc.__traceback__)
             log_startup_exc("mainloop", exc)
             self._log_error(
                 "Mainloop-krasch: %s" % exc, traceback.format_exc()
@@ -1858,9 +1872,13 @@ class App(tk.Tk):
 # ==============================================================================
 
 if __name__ == "__main__":
+    _startup_phase('Skapar huvudfönster')
     app = App()
+    _startup_phase('Huvudfönster skapat', 'Minimerad start är normal; öppna via tray eller visa_app.pyw.')
     from error_summary import ErrorSummary
     app._error_summary = ErrorSummary().start()
     from release_scheduler import ReleaseScheduler
     app._release_scheduler = ReleaseScheduler(app, BASE_DIR)
+    _startup_phase('Startar mainloop')
     app._safe_mainloop()   # M2: vaktad mainloop
+    _startup_phase('Mainloop avslutad')

@@ -154,8 +154,23 @@ def select_for_start(entry):
     for name in ('PYTHONHOME', 'PYTHONPATH', 'VIRTUAL_ENV', '__PYVENV_LAUNCHER__'):
         env.pop(name, None)
     env['FTP_UPLOADER_RUNTIME_SELECTED'] = '1'
-    subprocess.Popen([str(selected), str(Path(entry).resolve()), *sys.argv[1:]], env=env,
-                     cwd=Path(entry).resolve().parent)
+    # Capture Pythonw failures even if main.pyw fails before its first statement.
+    from datetime import datetime
+    directory = Path(entry).resolve().parent / 'logs'
+    directory.mkdir(exist_ok=True)
+    output = directory / ('python-child_%s_%d.log' % (datetime.now().strftime('%Y%m%d'), os.getpid()))
+    with output.open('a', encoding='utf-8') as stream:
+        child = subprocess.Popen([str(selected), str(Path(entry).resolve()), *sys.argv[1:]], env=env,
+                                 cwd=Path(entry).resolve().parent, stdout=stream, stderr=subprocess.STDOUT)
+    _log_selection(entry, 'Vidarestartad som pid=%s. Felutmatning: %s' % (child.pid, output))
+    from startup_diagnostics import phase
+    phase('Vidarestart till vald Python', 'Barnprocess pid=%s; logg=%s' % (child.pid, output))
+    try:
+        code = child.wait(timeout=1)
+    except subprocess.TimeoutExpired:
+        code = None  # Healthy long-running child; its early hook handles later errors.
+    if code not in (None, 0):
+        raise RuntimeError('Vald Python avslutades direkt med kod %s. Se %s' % (code, output))
     raise SystemExit(0)
 
 

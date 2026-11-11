@@ -994,7 +994,7 @@ def environment_report(app=None, logs_dir=None, files_stats=None):
                     "skrivna rader=%s varav fel=%s"
                     % (files_stats.get("main", UNKNOWN),
                        files_stats.get("main_open"),
-                       files_stats.get("errors", UNKNOWN),
+                       files_stats.get("error_file", UNKNOWN),
                        files_stats.get("err_open"),
                        files_stats.get("written"),
                        files_stats.get("errors"))))

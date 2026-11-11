@@ -130,15 +130,21 @@ def ensure_primary():
     global _primary
     if _primary is not None and _primary.is_held():
         return _primary
+    from startup_diagnostics import phase
+    phase('Kontrollerar instanslås')
     guard = SingleInstance()
     if guard.acquire():
         _primary = guard
         atexit.register(guard.release)
+        phase('Instanslås erhållet')
         return guard
+    phase('Instansport upptagen', 'Försöker aktivera den redan körande appen; ingen extra instans startas.')
     if guard.activate_existing():
+        phase('Aktivering skickad', 'Denna extra start avslutas normalt. Befintlig app ska behandla begäran.')
         return None
     raise RuntimeError('Appens instansport används, men den befintliga appen svarar inte. '
-                       'Vänta tills starten är klar och försök igen. Ingen extra instans startas.')
+                       'En äldre eller låst instans kan fortfarande köras. Använd visa_app.pyw från samma programmapp. '
+                       'Se logs/startup-early.log. Ingen extra instans startas.')
 
 
 def owns_instance():
