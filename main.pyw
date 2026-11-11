@@ -1046,7 +1046,7 @@ class App(tk.Tk):
 
         # ── 6. Ta bort trigger-fil (A6) ───────────────────────
         try:
-            if self._instance_lock.consume_show_request() or self._show_trigger.exists():
+            if self._show_trigger.exists():
                 self._show_trigger.unlink()
         except Exception:
             pass
