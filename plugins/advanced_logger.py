@@ -493,6 +493,9 @@ class AdvancedLogger(BasePlugin, UiCaptureMixin, DiagWindowMixin,
         if not self.is_active:
             return
 
+        from event_log import emit, redact
+        message = redact(str(message))
+        emit('app.log', {'FEL': 'ERROR', 'VARNING': 'WARNING'}.get((level or 'INFO').upper(), (level or 'INFO').upper()), message=message)
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
         lvl = (level or "INFO").upper()
         entry = {"time": timestamp, "level": lvl, "message": message}

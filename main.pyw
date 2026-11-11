@@ -155,6 +155,9 @@ _startup_phase('Importerar Tk')
 import tkinter as tk
 _startup_phase('Tk importerat')
 from tkinter import ttk, messagebox
+from event_log import emit as _event, exception as _event_exception, JOB as _log_job
+from event_log import install_dialog_capture
+install_dialog_capture()
 import importlib
 import pkgutil
 import json
@@ -347,6 +350,8 @@ class App(tk.Tk):
     def __init__(self):
         super().__init__(className="FTP-uploader")
         self._startup_open_requested = False
+        from event_log import attach_ui
+        attach_ui(self)
 
         # ── 0. Startlogg (v2.7.0) ─────────────────────────────
         reset_startup_log()
@@ -815,6 +820,9 @@ class App(tk.Tk):
         status = self.context.get('_tray_status')
         token = status.begin() if status is not None else None
         failed = False
+        import uuid as _uuid
+        _job_token = _log_job.set(_uuid.uuid4().hex[:12])
+        _event('pipeline.begin')
         try:
             for name, plugin in self.get_plugins(only_enabled=True):
                 if not hasattr(plugin, "execute"):
@@ -824,10 +832,15 @@ class App(tk.Tk):
                 if log_func:
                     log_func("→ %s" % plugin.PLUGIN_NAME)
                 try:
+                    import time as _time
+                    _step_start = _time.monotonic()
+                    _event('plugin.execute.begin', plugin=name)
                     result = plugin.execute(self.context, log_func)
+                    _event('plugin.execute.end', plugin=name, seconds=round(_time.monotonic() - _step_start, 3))
                     if result is not None:   # BUG-002
                         self.context = result
                 except Exception as exc:
+                    _event_exception('plugin.execute.failed', type(exc), exc, exc.__traceback__, plugin=name)
                     msg = "[FEL] %s: %s" % (name, exc)
                     if log_func:
                         log_func(msg)
@@ -839,6 +852,8 @@ class App(tk.Tk):
         finally:
             if status is not None:
                 status.finish(token, failed)
+            _event('pipeline.end', 'ERROR' if failed else 'INFO', failed=failed)
+            _log_job.reset(_job_token)
             self._pipeline_busy -= 1
 
     def _run_pipeline_safe(self) -> None:
@@ -959,6 +974,7 @@ class App(tk.Tk):
 
     def show_window(self) -> None:
         """Visa fönstret (från systray-klick eller fallback)."""
+        _event('window.show.requested')
         self._startup_open_requested = True
         log_startup("show_window", "anropad → deiconify+lift+focus_force")
         try:
@@ -980,6 +996,7 @@ class App(tk.Tk):
 
     def hide_to_tray(self) -> None:
         """Minimera till systray. Sparar position."""
+        _event('window.hide_to_tray')
         log_startup("hide_to_tray", "döljer fönster till systemfältet")
         self._save_window_state()
         self.withdraw()

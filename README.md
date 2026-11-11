@@ -323,3 +323,23 @@ Felhanteringen installeras nu före Python-sökning, instanslås, Tk-import och 
 Om barnprocessen avslutas med felkod under första sekunden rapporterar startaren det i stället för att bara avsluta tyst. Saknade beroenden som inte kunde installeras stoppar nu starten med ett tydligt fel; appen fortsätter inte som om paketinstallationen lyckades. Senare mainloop-fel skrivs också i startkraschloggen. Loggarna omfattas av ordinarie datumarkivering/retention. Ett strömavbrott, tvångsavslut eller alla typer av native-krasch kan fortfarande inte garanteras ge en fullständig logg.
 
 Kodgranskningens regressioner: CSS-förhandsvisningen hanterar nu procenttecken korrekt i HTML-mallen. Loggstatistik skiljer på `error_file` (filnamnet) och `errors` (antalet), så startloggen visar inte längre felantalet som felfilens namn.
+
+
+## Utökad händelse- och felinsamling
+
+`logs/events_ÅÅÅÅMMDD.log` är en gemensam händelselogg med läsbar tids-/nivåprefix och JSON per rad. Varje post har lokal tid med tidszon, sessions-ID, process-ID, tråd och, för pipeline-jobb, jobb-ID. Filen delas vid 10 MiB i numrerade segment utan att dagens poster kastas. Ordinarie datumarkiv och 14-dagarsretention gäller; olösta fel ligger kvar i det separata registret.
+
+Insamlingen omfattar:
+
+- startsteg, normal vidarestart och avslut samt tillgängliga Python-undantag;
+- appens befintliga loggmeddelanden, bakgrundstrådsfel, Tk-callbackfel och undantag i exempelvis destruktorer (`unraisablehook`);
+- Python-varningar som faktiskt utfärdas och Python-loggingposter som når rotloggern (bibliotekens egna nivåfilter ändras inte);
+- radbuffrad stdout/stderr, även fragmenterade skrivrader och slutflush;
+- pipeline- och pluginstart/slut, tidsåtgång och fel med traceback;
+- Tk-messageboxar som använder den vanliga `messagebox`-vägen, fönstrets visa/dölj/fokus samt klickad widgetklass, inte fältinnehåll;
+- processstarter (enbart körbar fil, aldrig argument eller miljö) och anslutningsförsök (adress, inte trafikens innehåll). Ett försök är inte bevis för en lyckad anslutning;
+- UI-livstecken en gång per minut och varning med huvudtrådens stack när pulsen är mer än 15 sekunder försenad, följt av en återhämtningspost. Långa jobb eller systemdialoger kan fördröja pulsen utan att appen har kraschat.
+
+Ingen tangentloggning, skärminspelning, global filövervakning eller övervakning av andra program används. Ingen miljödump, FTP-PASS-kommandologgning eller nätverkspayload samlas in. Lösenords-/tokenfält, vanliga nyckel=värde-mönster, Bearer-token och URL-inloggning maskeras i den nya händelseloggen; appens vanliga logger och fångade stdout/stderr får också maskering. Lokala sökvägar och felmeddelanden kan fortfarande innehålla personuppgifter. Maskering är ett skydd på bästa möjliga grund, inte en garanti: granska alltid loggar före delning, särskilt native-felloggar och utdata från underprocesser.
+
+Detta kan inte upptäcka bokstavligen allt. Fångade men avsiktligt ignorerade undantag som aldrig loggas, privata bibliotekshanterare som inte vidarebefordrar logging, icke-Tk/systemdialoger, tvångsavslut, strömavbrott och vissa native-krascher kan sakna fullständig information. Ingen generell tracing av varje Python-anrop/undantag aktiveras, eftersom det skulle belasta appen kraftigt. Speglade fel kan förekomma i flera loggar och ska inte tolkas som separata krascher enbart utifrån antal träffar.

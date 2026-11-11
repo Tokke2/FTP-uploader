@@ -312,6 +312,8 @@ def install_threading_hook(log_cb):
                 return
             thread  = getattr(args, "thread", None)
             name    = getattr(thread, "name", UNKNOWN)
+            from event_log import exception as record_exception
+            record_exception('thread.exception', exc_type, exc_value, exc_tb, failed_thread=name)
             tb_text = "".join(
                 traceback.format_exception(exc_type, exc_value, exc_tb)
             )
@@ -363,6 +365,8 @@ def install_tk_callback_hook(app, log_cb):
 
     def _tk_report(exc, val, tb):
         try:
+            from event_log import exception as record_exception
+            record_exception('tk.callback.exception', exc, val, tb)
             tb_text = "".join(traceback.format_exception(exc, val, tb))
             log_cb(
                 "FEL",
