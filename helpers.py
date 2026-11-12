@@ -1606,6 +1606,9 @@ class SystrayManager:
             return
 
         self._active = True
+        if sys.platform == 'darwin':
+            self._run()
+            return
         self._thread = threading.Thread(
             target=self._run,
             daemon=True,
@@ -1672,7 +1675,10 @@ class SystrayManager:
                 menu=menu,
             )
 
-            self._icon.run()
+            if sys.platform == 'darwin':
+                self._icon.run_detached()
+            else:
+                self._icon.run()
 
         except Exception as e:
             safe_print("[SystrayManager] Fel: %s" % e)

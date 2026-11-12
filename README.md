@@ -343,3 +343,16 @@ Insamlingen omfattar:
 Ingen tangentloggning, skärminspelning, global filövervakning eller övervakning av andra program används. Ingen miljödump, FTP-PASS-kommandologgning eller nätverkspayload samlas in. Lösenords-/tokenfält, vanliga nyckel=värde-mönster, Bearer-token och URL-inloggning maskeras i den nya händelseloggen; appens vanliga logger och fångade stdout/stderr får också maskering. Lokala sökvägar och felmeddelanden kan fortfarande innehålla personuppgifter. Maskering är ett skydd på bästa möjliga grund, inte en garanti: granska alltid loggar före delning, särskilt native-felloggar och utdata från underprocesser.
 
 Detta kan inte upptäcka bokstavligen allt. Fångade men avsiktligt ignorerade undantag som aldrig loggas, privata bibliotekshanterare som inte vidarebefordrar logging, icke-Tk/systemdialoger, tvångsavslut, strömavbrott och vissa native-krascher kan sakna fullständig information. Ingen generell tracing av varje Python-anrop/undantag aktiveras, eftersom det skulle belasta appen kraftigt. Speglade fel kan förekomma i flera loggar och ska inte tolkas som separata krascher enbart utifrån antal träffar.
+
+## Minimera/stäng och flera operativsystem
+
+Minimera och fönstrets X-knapp döljer nu till en **synlig** systemfältsikon. Gamla `close_to_tray=False`/`minimize_to_tray=False` ändrar inte detta. Avsluta uttryckligen med appens eller systemfältsmenyns **Avsluta**. Om systemfält saknas minimeras fönstret normalt, utan avslut; om fönsterhanteraren avvisar minimering lämnas fönstret synligt.
+
+- **Windows:** Tk-fönster, pystray-systemfält, ICO och befintligt genvägs-/autostartstöd.
+- **macOS:** Tk-fönster, PNG och medföljande ICNS. Tray-plugin och reservhanterare initierar nu pystray via `run_detached()` från Tk-tråden, i stället för Cocoa-loop i bakgrundstråd. Kräver fungerande Python/Tk/Pillow/pystray; verkligt menyrads-/Dock-beteende måste verifieras på macOS.
+- **Linux X11:** systemfält när skrivbordet och installerad pystray-backend erbjuder det, annars vanlig minimering. Tk och backendens systembibliotek kan behöva installeras med distributionens pakethanterare.
+- **Linux Wayland:** nuvarande konservativa reservläge använder vanlig minimering, inte garanterat systemfält. Ett skrivbord utan traystöd ska inte göra appen oåtkomlig.
+
+Ingen plattform behöver Git eller egen virtuell miljö för normal drift. Att filformat och kodvägar stöds är inte samma sak som ett verifierat installerarpaket för alla operativsystem. Automatiska tester körs i Linux-sandbox; riktiga Windows-, macOS- och skrivbordstester återstår.
+
+Ny grafisk identitet och tryckfiler: se `branding/README.md`. SVG-originalen innehåller enbart vektorer, inklusive konturkonverterad text.

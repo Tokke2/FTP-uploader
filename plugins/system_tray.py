@@ -636,13 +636,14 @@ class SystemTrayPlugin(BasePlugin):
                 menu=menu,
             )
 
-            self._tray_thread = threading.Thread(
-                target=self._tray_loop,
-                daemon=True,
-                name="SystemTrayThread",
-            )
-            self._tray_thread.start()
             self._tray_running = True
+            if sys.platform == 'darwin':
+                # Cocoa tray integration must be initialized on Tk's main thread.
+                self.tray_icon.run_detached()
+            else:
+                self._tray_thread = threading.Thread(
+                    target=self._tray_loop, daemon=True, name="SystemTrayThread")
+                self._tray_thread.start()
             self.log(
                 "INFO",
                 "Systray-ikon startad (ikonkalla: %s)"
@@ -951,31 +952,8 @@ class SystemTrayPlugin(BasePlugin):
     # ==========================================================================
 
     def _on_window_close(self) -> None:
-        """
-        X-knappen klickad.
-
-        Beteende:
-          - pystray tillganglig + close_to_tray=True -> minimera till tray
-          - Annars -> bekraftelsedialog
-        """
-        if (
-            TRAY_AVAILABLE
-            and self.settings.get("close_to_tray", True)
-            and self._tray_running
-            and not IS_WAYLAND
-        ):
-            self.minimize_to_tray()
-        else:
-            if messagebox.askyesno(
-                "Avsluta",
-                "Vill du avsluta Gallery Uploader?"
-            ):
-                self.app.quit_app()
-            else:
-                try:
-                    self.app.iconify()
-                except Exception:
-                    pass
+        from window_tray import close_to_tray
+        close_to_tray(self.app)
 
     def _on_unmap(self, event) -> None:
         """
@@ -985,8 +963,6 @@ class SystemTrayPlugin(BasePlugin):
         if event.widget != self.app:
             return
         if not TRAY_AVAILABLE or not self._tray_running or IS_WAYLAND:
-            return
-        if not self.settings.get("minimize_to_tray", True):
             return
         self.app.after(200, self._check_and_minimize)
 
@@ -1071,6 +1047,7 @@ class SystemTrayPlugin(BasePlugin):
         # -- Systray-sektion -----------------------------------
         tray_lf = ttk.LabelFrame(body, text=" Systray ", padding=10)
         tray_lf.pack(fill=tk.X, pady=(0, 10))
+        self._mk_label(tray_lf, "Minimera och X döljer till systemfältet. Utan systemfält minimeras fönstret. Avsluta via menyn.").pack(anchor=tk.W)
 
         if TRAY_AVAILABLE and not IS_WAYLAND:
             minimize_var = tk.BooleanVar(
@@ -1083,8 +1060,6 @@ class SystemTrayPlugin(BasePlugin):
                 value=self.settings.get("show_notifications", True)
             )
             for var, txt in [
-                (minimize_var, "Minimera till tray (Ctrl+M)"),
-                (close_var,    "X-knappen minimerar (stanger inte)"),
                 (notify_var,   "Visa notifikationer"),
             ]:
                 ttk.Checkbutton(tray_lf, text=txt, variable=var).pack(
@@ -1141,8 +1116,8 @@ class SystemTrayPlugin(BasePlugin):
 
         def _save():
             if TRAY_AVAILABLE and not IS_WAYLAND:
-                self.settings["minimize_to_tray"]   = minimize_var.get()
-                self.settings["close_to_tray"]      = close_var.get()
+                self.settings["minimize_to_tray"]   = True
+                self.settings["close_to_tray"]      = True
                 self.settings["show_notifications"] = notify_var.get()
             if AUTOSTART_AVAILABLE:
                 new_auto = autostart_var.get()

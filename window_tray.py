@@ -21,8 +21,6 @@ class MinimizeToTray:
                 return
             plugin = self.app.context.get('_system_tray')
             if plugin is not None:
-                if not plugin.settings.get('minimize_to_tray', True):
-                    return
                 icon = plugin.tray_icon
                 if plugin._tray_running and icon is not None and icon.visible:
                     plugin.minimize_to_tray()
@@ -57,3 +55,28 @@ def finish_minimized_startup(app, attempt=0):
         app.minimize_startup()
     else:
         app.after(200, lambda: finish_minimized_startup(app, attempt + 1))
+
+
+def close_to_tray(app):
+    """Close means hide/minimize, never quit or disappear without a usable tray."""
+    from event_log import emit
+    plugin = app.context.get('_system_tray')
+    manager = getattr(app, '_systray_mgr', None)
+    for owner in (plugin, manager):
+        if owner is None:
+            continue
+        icon = getattr(owner, 'tray_icon', None) or getattr(owner, '_icon', None)
+        try:
+            if icon is not None and icon.visible:
+                app.hide_to_tray()
+                emit('window.close_to_tray')
+                return
+        except Exception:
+            continue
+    emit('window.close_native_minimize', message='Inget användbart systemfält; appen avslutas inte.')
+    try:
+        app.deiconify()
+        app.iconify()
+    except Exception:
+        # Some window managers reject iconify: keep the app visible.
+        app.deiconify()

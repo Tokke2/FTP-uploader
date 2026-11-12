@@ -35,10 +35,10 @@ class WindowTrayTests(unittest.TestCase):
         self.plugin.minimize_to_tray.assert_not_called()
         self.app.hide_to_tray.assert_not_called()
 
-    def test_setting_disabled(self):
+    def test_legacy_disabled_setting_does_not_override_always_tray(self):
         self.plugin.settings['minimize_to_tray'] = False
         self.handler._check()
-        self.plugin.minimize_to_tray.assert_not_called()
+        self.plugin.minimize_to_tray.assert_called_once()
 
     def test_builtin_fallback(self):
         self.app.context.clear()
@@ -95,3 +95,33 @@ class MinimizedStartupTests(unittest.TestCase):
         app.after.assert_called_once()
         app.minimize_startup.assert_not_called()
         app.withdraw.assert_not_called()
+
+
+class CloseToTrayTests(unittest.TestCase):
+    def app(self, visible=False):
+        return SimpleNamespace(context={}, _systray_mgr=SimpleNamespace(_icon=SimpleNamespace(visible=visible)),
+                               hide_to_tray=Mock(), iconify=Mock(), deiconify=Mock(), quit_app=Mock())
+
+    def test_close_with_visible_tray_hides_without_exit(self):
+        from window_tray import close_to_tray
+        app = self.app(True)
+        close_to_tray(app)
+        app.hide_to_tray.assert_called_once()
+        app.quit_app.assert_not_called()
+        app.iconify.assert_not_called()
+
+    def test_close_without_tray_minimizes_without_exit(self):
+        from window_tray import close_to_tray
+        app = self.app(False)
+        close_to_tray(app)
+        app.iconify.assert_called_once()
+        app.hide_to_tray.assert_not_called()
+        app.quit_app.assert_not_called()
+
+    def test_unsupported_iconify_keeps_window_visible(self):
+        from window_tray import close_to_tray
+        app = self.app()
+        app.iconify.side_effect = RuntimeError('unsupported')
+        close_to_tray(app)
+        self.assertEqual(app.deiconify.call_count, 2)
+        app.quit_app.assert_not_called()

@@ -1002,23 +1002,9 @@ class App(tk.Tk):
         self.withdraw()
 
     def on_close(self) -> None:
-        """
-        X-knappen klickad.
-
-        Med systray: minimera (ALDRIG avsluta).
-        Utan systray: avsluta.
-        """
-        # Kontrollera system_tray-plugin (äger X-knappen)
-        system_tray = self.context.get("_system_tray")
-        if system_tray and hasattr(system_tray, "_on_window_close"):
-            system_tray._on_window_close()
-            return
-
-        # Fallback
-        if HAS_SYSTRAY and self._systray_mgr:
-            self.hide_to_tray()
-        else:
-            self.quit_app()
+        """X hides to a usable tray, otherwise native minimization; never quit."""
+        from window_tray import close_to_tray
+        close_to_tray(self)
 
     def quit_app(self) -> None:
         """
