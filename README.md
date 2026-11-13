@@ -356,3 +356,11 @@ Minimera och fönstrets X-knapp döljer nu till en **synlig** systemfältsikon. 
 Ingen plattform behöver Git eller egen virtuell miljö för normal drift. Att filformat och kodvägar stöds är inte samma sak som ett verifierat installerarpaket för alla operativsystem. Automatiska tester körs i Linux-sandbox; riktiga Windows-, macOS- och skrivbordstester återstår.
 
 Ny grafisk identitet och tryckfiler: se `branding/README.md`. SVG-originalen innehåller enbart vektorer, inklusive konturkonverterad text.
+
+### Autostart: minimerad inloggningsstart och verifiering
+
+Autostartgenvägen får nu `--autostart` och Windows-kommandot för minimerad visning utan fokus. Tk startar fortsatt dolt och väljer synligt systemfält eller vanlig minimering. Om appen redan körs skickar en autostart **inte** SHOW; manuell dubbelstart öppnar fortfarande appen.
+
+Genvägens faktiska innehåll verifieras med hash, inte bara en separat metadatafil. Saknad/tom genväg rapporteras som fel och ändrad genväg repareras när autostart är valt. Windows egen inaktivering under Inställningar > Appar > Autostart upptäcks och loggas som `autostart.status`/`autostart.disabled_by_windows`; den åsidosätts inte i hemlighet. Vid aktivering visas instruktion om Windows har blockerat posten. En korrekt installerad genväg kan fortfarande blockeras av systempolicy eller Windows inställningar.
+
+Efter uppdatering: starta appen manuellt en gång så att gamla genvägar migreras, aktivera **Starta med Windows**, kontrollera Windows autostartinställningar och prova därefter utloggning/inloggning. Autostart betyder inloggning för aktuell användare, inte en tjänst före inloggning. Felsök med `logs/events_*.log`, `logs/startup-early.log` och `logs/python-discovery.log`.

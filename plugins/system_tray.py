@@ -984,8 +984,7 @@ class SystemTrayPlugin(BasePlugin):
 
     def set_autostart(self, enable: bool) -> bool:
         try:
-            from main_guards import set_autostart
-            if not set_autostart(enable):
+            if not self.app._set_autostart(enable):
                 return False
             self.settings["start_with_windows"] = enable
             self.app.settings["autostart"] = enable

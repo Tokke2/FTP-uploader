@@ -1553,6 +1553,12 @@ class App(tk.Tk):
         """
         if sys.platform == "win32":
             success = set_autostart(bool(enabled))
+            if success and enabled:
+                from windows_autostart import startup_disabled
+                if startup_disabled():
+                    messagebox.showwarning(APP_NAME,
+                        "Genvägen är installerad men Windows har inaktiverat den.\n"
+                        "Aktivera FTP-uploader i Inställningar > Appar > Autostart.")
             if success:
                 tray = self.context.get('_system_tray')
                 if tray is not None:
@@ -1625,6 +1631,13 @@ class App(tk.Tk):
                 needs_fix = (current is not None)
 
             if not needs_fix:
+                if want:
+                    from windows_autostart import startup_disabled
+                    from event_log import emit
+                    disabled = startup_disabled()
+                    emit('autostart.status', 'WARNING' if disabled else 'INFO',
+                         registered=True, disabled_by_windows=disabled,
+                         message='Aktivera i Windows Inställningar > Appar > Autostart' if disabled else 'Genväg verifierad')
                 return
 
             ok = self._set_autostart(want)

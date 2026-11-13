@@ -139,6 +139,10 @@ def ensure_primary():
         phase('Instanslås erhållet')
         return guard
     phase('Instansport upptagen', 'Försöker aktivera den redan körande appen; ingen extra instans startas.')
+    import sys
+    if '--autostart' in sys.argv:
+        phase('Autostart: befintlig instans', 'Ingen SHOW-begäran skickas; befintligt fönster lämnas orört.')
+        return None
     if guard.activate_existing():
         phase('Aktivering skickad', 'Denna extra start avslutas normalt. Befintlig app ska behandla begäran.')
         return None

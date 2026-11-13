@@ -65,7 +65,7 @@ def create_shortcut(destination, target, arguments, icon, working_directory):
         call(link, 9, [wintypes.LPCWSTR], str(working_directory))
         call(link, 7, [wintypes.LPCWSTR], 'FTP-uploader – bildgalleri och uppladdning')
         call(link, 17, [wintypes.LPCWSTR, ctypes.c_int], str(icon), 0)
-        call(link, 15, [ctypes.c_int], 1)  # SW_SHOWNORMAL; app decides tray state
+        call(link, 15, [ctypes.c_int], 7 if '--autostart' in arguments else 1)  # SW_SHOWMINNOACTIVE for login
         # Match the process AppUserModelID so pinned/taskbar shortcuts belong
         # to this app, not to the shared Python interpreter.
         class PropertyKey(ctypes.Structure):
