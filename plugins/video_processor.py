@@ -240,6 +240,7 @@ class VideoProcessor(VideoProcessorUIMixin, BasePlugin):
         self.start_ui_updater()
 
         # -- Logg ----------------------------------------------
+        self.log('INFO', 'Videoprogress: rörlig stapel direkt vid start, procent när mätdata finns.')
         if self.ffmpeg_available:
             self.log(
                 "OK",
@@ -505,14 +506,22 @@ class VideoProcessor(VideoProcessorUIMixin, BasePlugin):
 
         _update()
 
+    def _visible_file_progress(self, value=None):
+        from processing_progress import InlineProgress
+        if not hasattr(self, '_inline_video_progress'):
+            self._inline_video_progress = InlineProgress(
+                self.current_progress_bar, self.current_progress_var, self.current_percent_label)
+        self._inline_video_progress.update(value)
+
     def _handle_progress_update(self, msg_type: str, data) -> None:
         """Hantera progress-uppdatering i main thread."""
         try:
             if msg_type == "total":
                 self.total_progress_var.set(data)
             elif msg_type == "current":
-                self.current_progress_var.set(data)
-                self.current_percent_label.config(text="%d%%" % int(data))
+                self._visible_file_progress(data)
+            elif msg_type == 'current_busy':
+                self._visible_file_progress()
             elif msg_type == "status":
                 self.status_label.config(text=data)
             elif msg_type == "file":
@@ -871,6 +880,9 @@ class VideoProcessor(VideoProcessorUIMixin, BasePlugin):
             + sum(f.stat().st_size / (1024 * 1024) for f in image_files)
         )
 
+        self._visible_file_progress()
+        self.status_label.config(text='Förbereder konvertering…')
+        self.eta_label.config(text='')
         self.processing       = True
         self.paused           = False
         self.cancel_requested = False
@@ -938,6 +950,7 @@ class VideoProcessor(VideoProcessorUIMixin, BasePlugin):
                     break
 
                 vp = vd["path"]
+                self.progress_queue.put(('current_busy', None))
                 progress = getattr(self.app, '_processing_progress', None)
                 if progress:
                     progress.stage(self._processing_progress_job, 'Video %d/%d – %s' % (i + 1, len(self.video_queue), vp.name))
@@ -1028,7 +1041,7 @@ class VideoProcessor(VideoProcessorUIMixin, BasePlugin):
                 self.progress_queue.put(
                     ("status", "Bild %d/%d" % (i + 1, len(image_files)))
                 )
-                self.progress_queue.put(("current", 0))
+                self.progress_queue.put(('current_busy', None))
                 self.stats["current_item_start"] = time.time()
 
                 out_fmt  = self.image_format_var.get()
@@ -1333,6 +1346,11 @@ class VideoProcessor(VideoProcessorUIMixin, BasePlugin):
     def _on_processing_complete(self, result: dict) -> None:
         """Hantera avslutad bearbetning (main thread)."""
         self.processing = False
+        inline = getattr(self, '_inline_video_progress', None)
+        if inline:
+            inline.stop('Avbrutet' if result.get('cancelled') else 'Fel' if result.get('failed') else None)
+            if not result.get('cancelled') and not result.get('failed'):
+                inline.update(100)
         self.process_btn.config(state="normal")
         self.pause_btn.config(state="disabled", text="Pausa")
         self.cancel_btn.config(state="disabled")
@@ -1395,6 +1413,9 @@ class VideoProcessor(VideoProcessorUIMixin, BasePlugin):
     def _on_processing_error(self, error) -> None:
         """Hantera kritiskt fel (main thread)."""
         self.processing = False
+        inline = getattr(self, '_inline_video_progress', None)
+        if inline:
+            inline.stop('Fel')
         self.process_btn.config(state="normal")
         self.pause_btn.config(state="disabled")
         self.cancel_btn.config(state="disabled")

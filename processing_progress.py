@@ -126,3 +126,32 @@ class ProcessingProgress:
         seconds = max(0, int(job.get('finished', time.monotonic()) - job['started']))
         self.elapsed.configure(text='Förfluten tid: %d:%02d%s' % (seconds // 60, seconds % 60,
                                '' if done else ' · Arbetar…'))
+
+
+class InlineProgress:
+    """UI-thread adapter for a visible per-file bar, even without duration."""
+    def __init__(self, bar, variable, label):
+        self.bar, self.variable, self.label = bar, variable, label
+        self.running = False
+
+    def update(self, value=None):
+        if value is None:
+            if not self.running:
+                self.bar.configure(mode='indeterminate')
+                self.variable.set(0)
+                self.bar.start(12)
+                self.running = True
+            self.label.configure(text='Arbetar…')
+            return
+        self.stop()
+        value = max(0, min(100, float(value)))
+        self.variable.set(value)
+        self.label.configure(text='%d %%' % value)
+
+    def stop(self, text=None):
+        self.bar.stop()
+        self.bar.configure(mode='determinate')
+        self.running = False
+        if text is not None:
+            self.variable.set(0)
+            self.label.configure(text=text)

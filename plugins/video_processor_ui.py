@@ -825,10 +825,13 @@ class VideoProcessorUIMixin:
         )
         self.overall_label.pack(side=tk.LEFT, padx=5)
         self.total_progress_var = tk.DoubleVar()
-        ttk.Progressbar(
-            r1, variable=self.total_progress_var,
+        style = ttk.Style()
+        style.configure('Video.Horizontal.TProgressbar', thickness=22, background='#19b9d0', troughcolor='#17213a')
+        self.total_progress_bar = ttk.Progressbar(
+            r1, variable=self.total_progress_var, style='Video.Horizontal.TProgressbar',
             maximum=100, length=300, mode="determinate",
-        ).pack(side=tk.LEFT, fill=tk.X, expand=True, padx=5)
+        )
+        self.total_progress_bar.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=5)
         self.eta_label = self._mk_label(
             r1, "", "COLOR_MUTED", width=12,
             pack={"side": tk.RIGHT},
@@ -845,12 +848,13 @@ class VideoProcessorUIMixin:
         )
         self.current_file_label.pack(side=tk.LEFT, padx=5)
         self.current_progress_var = tk.DoubleVar()
-        ttk.Progressbar(
-            r2, variable=self.current_progress_var,
-            maximum=100, length=200, mode="determinate",
-        ).pack(side=tk.LEFT, fill=tk.X, expand=True, padx=5)
+        self.current_progress_bar = ttk.Progressbar(
+            r2, variable=self.current_progress_var, style='Video.Horizontal.TProgressbar',
+            maximum=100, length=240, mode="determinate",
+        )
+        self.current_progress_bar.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=5)
         self.current_percent_label = tk.Label(
-            r2, text="0%", width=5,
+            r2, text="0%", width=10,
             bg=bg, fg=self.COLOR_FG,
             font=("Segoe UI", 9),
         )

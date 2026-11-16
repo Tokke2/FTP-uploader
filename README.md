@@ -441,3 +441,8 @@ Status visar ett livstecken varje sekund och anger när inga nya statusdata har 
 ### Uppdatering blockerad trots avslutad bearbetning
 
 Aktivitetskontrollen använder nu faktiska jobbflaggor (inklusive Video-flikens `processing`), levande extern FFmpeg-process och uttryckligt identifierade arbetstrådar. Permanenta kö-/status-/aktiveringstrådar blockerar inte längre bara för att deras namn innehåller `process` eller `upload`. Samma kontroll används för manuell direktinstallation och schemalagd omstart. Faktiskt pågående arbete och osparade ändringar är fortfarande skyddade.
+
+
+### Synlig stapel direkt i Video-fliken
+
+Den inbyggda stapeln **Aktuell** i Video-fliken startar nu animation omedelbart när Bearbeta klickas, före worker-tråd och längdavläsning. Varje ny fil återgår till rörlig stapel tills FFmpeg rapporterar mätbar procent. Vid okänd längd står den inte kvar osynlig på 0 %. Staplarna har en egen stil med ökad tjocklek; faktisk färgåtergivning beror på Tk-tema/operativsystem. Vid fel eller avbrott stoppas animationen utan falsk 100 %. Separata Filbearbetning-dialogen behålls. Startloggen i Video-fliken innehåller `Videoprogress: rörlig stapel direkt vid start` så att laddad kod kan identifieras.
