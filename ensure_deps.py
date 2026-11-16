@@ -30,6 +30,8 @@ _LOG_NAME = "deps.log"
 # pip-namn -> importnamn (for snabb saknas-koll)
 _IMPORT_NAME = {
     "Pillow": "PIL",
+    "pillow-heif": "pillow_heif",
+    "imageio-ffmpeg": "imageio_ffmpeg",
     "pystray": "pystray",
     "six": "six",
     "watchdog": "watchdog",

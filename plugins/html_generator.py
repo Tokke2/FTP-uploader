@@ -225,13 +225,13 @@ class HtmlGenerator(HtmlTemplatesMixin, BasePlugin):
 
     IMAGE_FORMATS = {
         ".jpg", ".jpeg", ".png", ".gif",
-        ".webp", ".bmp", ".tiff", ".tif",
+        ".webp", ".bmp", ".tiff", ".tif", ".heic", ".heif",
     }
 
     PDF_FORMATS = {".pdf"}
 
     VIDEO_FORMATS = {
-        ".mp4", ".webm", ".mov", ".avi", ".mkv",
+        ".mp4", ".webm", ".mov", ".qt", ".avi", ".mkv",
         ".m4v", ".ogv", ".wmv", ".flv",
     }
 
@@ -873,9 +873,16 @@ class HtmlGenerator(HtmlTemplatesMixin, BasePlugin):
 
         for i, src in enumerate(sources, 1):
             ext = src.suffix.lower() or ""
-            new_name = prefix + str(i) + ext
+            is_quicktime = prefix == 'video' and ext in ('.mov', '.qt')
+            new_name = prefix + str(i) + ('.mp4' if is_quicktime else ext)
             dst = target_dir / new_name
-            self._safe_copy(src, dst)
+            if is_quicktime:
+                from media_support import quicktime_to_mp4
+                if log:
+                    log('  QuickTime → MP4: %s' % src.name)
+                quicktime_to_mp4(src, dst, self._find_ffmpeg())
+            else:
+                self._safe_copy(src, dst)
             links.append({
                 "name":          prefix + str(i),
                 "filename":      new_name,

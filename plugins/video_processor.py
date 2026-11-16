@@ -150,12 +150,12 @@ class VideoProcessor(VideoProcessorUIMixin, BasePlugin):
     # -- Bildformat --------------------------------------------
     IMAGE_FORMATS = {
         ".jpg", ".jpeg", ".png", ".webp",
-        ".bmp", ".tiff", ".tif",
+        ".bmp", ".tiff", ".tif", ".heic", ".heif",
     }
 
     # -- Videoformat -------------------------------------------
     VIDEO_FORMATS = {
-        ".mp4", ".avi", ".mov", ".mkv", ".wmv", ".flv",
+        ".mp4", ".avi", ".mov", ".qt", ".mkv", ".wmv", ".flv",
         ".webm", ".m4v", ".mpg", ".mpeg", ".3gp", ".ts",
     }
 
@@ -401,6 +401,10 @@ class VideoProcessor(VideoProcessorUIMixin, BasePlugin):
         for path in common:
             if path.exists() and self.test_ffmpeg(str(path)):
                 return str(path)
+        from media_support import bundled_ffmpeg
+        bundled = bundled_ffmpeg()
+        if bundled and self.test_ffmpeg(bundled):
+            return bundled
         return None
 
     def find_ffprobe(self):

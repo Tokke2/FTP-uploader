@@ -124,7 +124,7 @@ class ImageProcessor(BasePlugin):
     # Bildformat som stods
     IMAGE_FORMATS = {
         ".jpg", ".jpeg", ".png", ".gif",
-        ".webp", ".bmp", ".tiff", ".tif",
+        ".webp", ".bmp", ".tiff", ".tif", ".heic", ".heif",
     }
 
     # Parallell bearbetning (E4): max 3 workers, minst 4 bilder

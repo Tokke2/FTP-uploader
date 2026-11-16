@@ -142,7 +142,7 @@ class ImageFileHandler(FileSystemEventHandler):
 
     DEFAULT_FORMATS = {
         ".jpg", ".jpeg", ".png", ".gif",
-        ".webp", ".bmp", ".tiff", ".tif",
+        ".webp", ".bmp", ".tiff", ".tif", ".heic", ".heif",
     }
 
     def __init__(self, callback, image_formats, folder_path):

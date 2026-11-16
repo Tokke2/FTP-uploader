@@ -161,7 +161,7 @@ class GalleryView(GalleryViewMixin, BasePlugin):
         ".jpg": "JPEG", ".jpeg": "JPEG",
         ".png": "PNG",  ".gif":  "GIF",
         ".webp": "WebP", ".bmp": "BMP",
-        ".tiff": "TIFF", ".tif": "TIFF",
+        ".tiff": "TIFF", ".tif": "TIFF", ".heic": "HEIC", ".heif": "HEIF",
     }
 
     # -- Standardinstallningar ---------------------------------

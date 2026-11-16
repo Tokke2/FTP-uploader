@@ -1,6 +1,8 @@
 # Copyright (c) 2026 Rickard Längkvist
 """Reopen exported galleries without running the upload/processing pipeline."""
 import json
+from media_support import register_heif
+register_heif()
 from html.parser import HTMLParser
 from pathlib import Path
 import shutil
@@ -8,7 +10,7 @@ import tempfile
 from datetime import datetime
 
 MANIFEST = 'gallery-project.json'
-FORMATS = {'.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp', '.tif', '.tiff'}
+FORMATS = {'.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp', '.tif', '.heic', '.heif', '.tiff'}
 
 
 def local_file(root, name):
@@ -272,7 +274,7 @@ def open_editor(parent):
 
     def add():
         paths = filedialog.askopenfilenames(parent=window, title='Lägg till bilder',
-                    filetypes=[('Bilder', '*.jpg *.jpeg *.png *.gif *.webp *.bmp *.tif *.tiff')])
+                    filetypes=[('Bilder', '*.jpg *.jpeg *.png *.gif *.webp *.bmp *.tif *.tiff *.heic *.heif')])
         for path in paths:
             image = Path(path).resolve()
             if image.suffix.lower() in FORMATS and image not in images:

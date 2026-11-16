@@ -404,3 +404,13 @@ Swish-mottagaren ligger fast i programkoden och är inte redigerbara i inställn
 
 
 Donationsdialogen har en egen personlig tacktext om frivilligt stöd till utveckling, felsökning och underhåll. Den öppnas bara på begäran via Hjälp-menyn, aldrig som betalningspåminnelse vid start. Endast en dialog öppnas åt gången; upprepade menyval lyfter befintlig dialog. Stäng med knappen, X eller Escape. Längre innehåll kan rullas med dialogens rullningslist.
+
+## HEIC/HEIF och QuickTime från exempelvis iPhone
+
+HEIC/HEIF (`.heic`, `.heif`) ingår nu i bildval, mappövervakning, sortering, galleri och bildbehandling. `pillow-heif` registrerar avkodaren i Pillow. Den vanliga bildpipelinen skapar webbvänliga JPEG-bilder/miniatyrer och kan använda EXIF-rotation som tidigare. Originalen skrivs inte över. HEIC-bildsekvenser/Live Photo-rörelse importeras inte som animation: det är stillbilden som behandlas.
+
+QuickTime (`.mov`, `.qt`, även stora bokstäver) känns igen som video. Vid galleri-export konverteras dessa till MP4 med H.264, AAC om ljud finns, yuv420p och faststart för bättre webbläsarstöd. Videofliken kan också öppna dem för manuell konvertering. FFmpeg söks i befintlig installation och därefter via `imageio-ffmpeg`, vars tillgängliga plattformshjul normalt innehåller FFmpeg. Ingen separat QuickTime Player behövs. FFprobe är fortfarande separat och krävs för vissa detaljerade metadatafunktioner.
+
+Efter uppdatering installerar startaren de nya saknade beroendena `pillow-heif` och `imageio-ffmpeg` via den vanliga paketkontrollen. På plattformar/Python-versioner där kompatibla hjul eller systembibliotek saknas kan installation behöva lösas med operativsystemets pakethanterare; stöd för varje kodek eller skadad/DRM-skyddad fil kan inte garanteras. FFmpeg-/codec-licenser gäller separat.
+
+Konvertering sker i temporär fil, ersätter destinationen först vid framgång och har tidsgräns på en timme per fil. Vid fel lämnas original och tidigare MP4 orörda; felutmatning rapporteras, inte en falsk lyckad videolänk. Långa/stora videor kan ta tid och diskplats. HDR/Dolby Vision-färgmatchning eller exakt metadata-/spårbevarande garanteras inte av denna webbkonvertering.

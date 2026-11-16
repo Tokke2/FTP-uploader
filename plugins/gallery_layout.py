@@ -2,7 +2,7 @@
 """Small, UI-independent gallery filtering and layout helpers."""
 EXTENSIONS = {
     'JPEG': {'.jpg', '.jpeg'}, 'PNG': {'.png'}, 'GIF': {'.gif'},
-    'WebP': {'.webp'}, 'Andra': {'.bmp', '.tiff', '.tif'},
+    'WebP': {'.webp'}, 'Andra': {'.bmp', '.tiff', '.tif', '.heic', '.heif'},
 }
 
 

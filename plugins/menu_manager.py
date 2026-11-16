@@ -145,7 +145,7 @@ class MenuManager(BasePlugin):
 
     IMAGE_EXTS = {
         ".jpg", ".jpeg", ".png", ".gif",
-        ".webp", ".bmp", ".tiff", ".tif",
+        ".webp", ".bmp", ".tiff", ".tif", ".heic", ".heif",
     }
 
     COLOR_BG           = "#1e1e1e"

@@ -175,7 +175,7 @@ class ImageSorter(BasePlugin):
         # Hitta bildfiler
         formats = {
             ".jpg", ".jpeg", ".png", ".gif",
-            ".webp", ".bmp", ".tiff", ".tif"
+            ".webp", ".bmp", ".tiff", ".tif", ".heic", ".heif"
         }
         image_files = [
             f for f in images_path.glob("*")

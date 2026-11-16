@@ -2,6 +2,8 @@
 # during weekly maintenance (pip install --upgrade).
 # No prereleases; pip respects each package's Requires-Python metadata.
 Pillow
+pillow-heif
+imageio-ffmpeg
 resvg-py
 defusedxml
 pystray

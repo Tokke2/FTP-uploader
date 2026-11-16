@@ -1329,7 +1329,7 @@ class ControlsUI(BasePlugin):
                     if self.widget_exists(self.folder_label):
                         self.folder_label.config(text="Mapp: %s" % p.name)
 
-                    video_exts = {".mp4", ".avi", ".mov", ".mkv", ".webm"}
+                    video_exts = {".mp4", ".avi", ".mov", ".qt", ".mkv", ".webm"}
                     n_videos = sum(
                         1 for f in p.iterdir()
                         if f.is_file()

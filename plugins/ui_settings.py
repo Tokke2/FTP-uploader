@@ -218,11 +218,11 @@ class SettingsUI(GeneratedGalleryMixin, BasePlugin):
 
     IMAGE_FORMATS = {
         ".jpg", ".jpeg", ".png", ".gif",
-        ".webp", ".bmp", ".tiff", ".tif",
+        ".webp", ".bmp", ".tiff", ".tif", ".heic", ".heif",
     }
 
     VIDEO_FORMATS = {
-        ".mp4", ".avi", ".mov", ".mkv", ".wmv", ".flv",
+        ".mp4", ".avi", ".mov", ".qt", ".mkv", ".wmv", ".flv",
         ".webm", ".m4v", ".mpg", ".mpeg", ".3gp", ".ts",
     }
 

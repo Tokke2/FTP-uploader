@@ -107,6 +107,8 @@
 
 
 import app_paths
+from media_support import register_heif
+register_heif()
 import tkinter as tk
 import sys
 import os

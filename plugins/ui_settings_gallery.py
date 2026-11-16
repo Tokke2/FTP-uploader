@@ -170,7 +170,7 @@ class GeneratedGalleryMixin(object):
                 return True
             fmts = getattr(self, "IMAGE_FORMATS", None) or {
                 ".jpg", ".jpeg", ".png", ".gif", ".webp", ".bmp",
-                ".tiff", ".tif",
+                ".tiff", ".tif", ".heic", ".heif",
             }
             n = 0
             for f in p.iterdir():
@@ -1011,7 +1011,7 @@ class GeneratedGalleryMixin(object):
             title="Lägg till bilder",
             filetypes=[
                 ("Bilder",
-                 "*.jpg *.jpeg *.png *.gif *.webp *.bmp *.tif *.tiff"),
+                 "*.jpg *.jpeg *.png *.gif *.webp *.bmp *.tif *.tiff *.heic *.heif"),
                 ("Alla filer", "*.*"),
             ],
         )
@@ -1058,7 +1058,7 @@ class GeneratedGalleryMixin(object):
         files = filedialog.askopenfilenames(
             title="Lägg till videor",
             filetypes=[
-                ("Video", "*.mp4 *.webm *.mov *.avi *.mkv *.m4v *.ogv"),
+                ("Video", "*.mp4 *.webm *.mov *.qt *.avi *.mkv *.m4v *.ogv"),
                 ("Alla filer", "*.*"),
             ],
         )
