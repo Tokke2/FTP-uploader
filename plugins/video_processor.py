@@ -626,7 +626,12 @@ class VideoProcessor(VideoProcessorUIMixin, BasePlugin):
     def get_video_info_quick(self, path: Path):
         """Hamta bara duration via ffprobe."""
         if not self.ffprobe_path:
-            return None
+            from ffmpeg_progress import duration_from_ffmpeg
+            try:
+                duration = duration_from_ffmpeg(self.ffmpeg_path, path, self._no_window_flag())
+                return {'duration': duration} if duration > 0 else None
+            except Exception:
+                return None
         try:
             result = subprocess.run(
                 [self.ffprobe_path, "-v", "quiet",
@@ -949,6 +954,9 @@ class VideoProcessor(VideoProcessorUIMixin, BasePlugin):
 
                 def vprogress(pct, _done=done_items, _total=total_items):
                     self.progress_queue.put(("current", pct))
+                    progress = getattr(self.app, '_processing_progress', None)
+                    if progress:
+                        progress.stage(self._processing_progress_job, 'Konverterar ' + vp.name, pct if pct < 100 else None)
                     if pct > 5:
                         el  = time.time() - self.stats["current_item_start"]
                         eta = (el / pct) * (100 - pct)
@@ -1089,7 +1097,11 @@ class VideoProcessor(VideoProcessorUIMixin, BasePlugin):
         if not ffmpeg:
             raise RuntimeError("FFmpeg ej konfigurerat")
         if duration <= 0:
-            duration = 60.0
+            from ffmpeg_progress import duration_from_ffmpeg
+            try:
+                duration = duration_from_ffmpeg(ffmpeg, input_path, self._no_window_flag())
+            except Exception:
+                duration = 0
 
         codec     = self.codec_var.get()
         codec_map = {
@@ -1110,7 +1122,7 @@ class VideoProcessor(VideoProcessorUIMixin, BasePlugin):
                     encoder = hw_enc
                     break
 
-        cmd = [ffmpeg, "-y", "-i", str(input_path)]
+        cmd = [ffmpeg, '-hide_banner', '-nostdin', "-y", "-i", str(input_path)]
         cmd.extend(["-c:v", encoder])
         cmd.extend(["-crf", str(self.crf_var.get())])
         if codec in ("h264", "h265") and encoder.startswith("lib"):
@@ -1155,39 +1167,27 @@ class VideoProcessor(VideoProcessorUIMixin, BasePlugin):
             )
 
         try:
-            start    = time.time()
-            max_time = duration * 30
-            last_pct = 0
-            while True:
-                if self.cancel_requested:
-                    self.current_process.terminate()
-                    raise RuntimeError("Avbrutet av anvandaren")
-                if time.time() - start > max_time:
-                    self.current_process.terminate()
-                    raise RuntimeError("Timeout")
-                if self.current_process.poll() is not None:
-                    break
-
-                line = self.current_process.stdout.readline()
-                if line and "out_time_ms=" in line:
-                    try:
-                        ms  = int(line.split("=")[1])
-                        pct = min(
-                            (ms / 1_000_000 / duration) * 100, 99
-                        )
-                        if pct > last_pct and progress_callback:
-                            last_pct = pct
-                            progress_callback(pct)
-                    except Exception:
-                        pass
-
-            rc = self.current_process.wait(timeout=5)
-            if rc != 0:
-                err = self.current_process.stderr.read()
-                raise RuntimeError("FFmpeg exit %s: %s" % (rc, err[:120]))
-
-            if progress_callback:
-                progress_callback(100)
+            from ffmpeg_progress import monitor
+            latest_percent = None
+            def report_progress(value):
+                nonlocal latest_percent
+                latest_percent = value
+                if progress_callback:
+                    progress_callback(value)
+            def heartbeat(elapsed, silent):
+                text = 'FFmpeg arbetar · %ds' % elapsed
+                if silent >= 30:
+                    text = 'FFmpeg kör · inga nya statusdata på %ds' % silent
+                elif duration <= 0:
+                    text += ' · okänd längd (procent saknas)'
+                self.progress_queue.put(('status', text))
+                self.progress_queue.put(('speed', 'Aktiv i %ds' % elapsed))
+                progress = getattr(self.app, '_processing_progress', None)
+                if progress:
+                    progress.stage(self._processing_progress_job, input_path.name + ' · ' + text, latest_percent)
+            monitor(self.current_process, duration=duration, progress=report_progress,
+                    cancelled=lambda: self.cancel_requested, heartbeat=heartbeat,
+                    timeout=max(3600, duration * 30))
 
         finally:
             with self.process_lock:
@@ -1326,15 +1326,7 @@ class VideoProcessor(VideoProcessorUIMixin, BasePlugin):
         ):
             return
         self.cancel_requested = True
-        with self.process_lock:
-            if self.current_process:
-                try:
-                    self.current_process.terminate()
-                    time.sleep(0.5)
-                    if self.current_process.poll() is None:
-                        self.current_process.kill()
-                except Exception:
-                    pass
+        # The monitor sees this flag within ~200 ms and terminates/reaps FFmpeg.
         self.progress_queue.put(("status", "Avbryter..."))
         self.queue_log("Avbryter bearbetning...", "warning")
 
