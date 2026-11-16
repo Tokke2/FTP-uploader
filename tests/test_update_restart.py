@@ -87,14 +87,13 @@ class UpdateRestartTests(unittest.TestCase):
                 patch('auto_update.apply_release', return_value='Installerad') as install, \
                 patch('auto_update.live_update_blockers', return_value=[]), \
                 patch('auto_update.threading.Thread', side_effect=thread), \
-                patch('auto_update.offer_installed_restart') as offer:
+                patch('auto_update.handoff_release') as handoff:
             auto_update.check_before_start('/app', parent=app, manual=True)
             callbacks.pop(0)()
-            install.assert_called_once_with('/app', release, running_app=app)
-            callbacks.pop(0)()
-            offer.assert_called_once()
+            install.assert_not_called()
+            handoff.assert_called_once_with(app, '/app', release)
             root.grab_set.assert_called_once()
-            root.grab_release.assert_called_once()
+            root.grab_release.assert_not_called()
 
     def test_permanent_processing_services_do_not_block_idle_update(self):
         app = self.app()

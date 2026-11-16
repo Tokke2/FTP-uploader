@@ -277,7 +277,7 @@ def _install_release(base, release):
             if not version or version[1] != tag.lstrip('v'):
                 raise ValueError('Releasetagg och APP_VERSION stämmer inte överens.')
             state_file = Path('.release-state.json')
-            (staged / state_file).write_text(json.dumps({'tag': tag, 'commit': commit}), encoding='utf-8')
+            (staged / state_file).write_text(json.dumps({'tag': tag, 'commit': commit, 'installed_at': datetime.now().astimezone().isoformat(timespec='seconds')}), encoding='utf-8')
             files.append(state_file)
             # Validate all code before changing a single installed file.
             for relative in files:
@@ -489,7 +489,11 @@ def check_before_start(base, parent=None, manual=False):
             settings.pop('pending_release', None)
             save_update_settings(settings)
             if parent is not None:
-                launch(lambda: apply_release(base, value, running_app=parent))
+                try:
+                    handoff_release(parent, base, value)
+                except Exception as exc:
+                    finish('Kunde inte starta separat uppdatering: ' + str(exc))
+                return
             else:
                 launch(lambda: apply_release(base, value))
         else:
@@ -532,3 +536,23 @@ def request_from_tray(app):
     def show():
         check_before_start(Path(__file__).resolve().parent, parent=app, manual=True)
     app.after(0, show)
+
+
+def handoff_release(app, base, release):
+    """Save, spawn waiting installer, then shut down; never replace live GUI code."""
+    reasons = live_update_blockers(app)
+    if reasons:
+        raise RuntimeError('Väntar på: ' + ', '.join(reasons))
+    from release_scheduler import spawn, python_executable
+    app._save_all_settings()
+    spawn([python_executable(), str(Path(base) / 'release_scheduler.py'),
+           '--restart', str(base), *release])
+    app.quit_app()
+
+
+def installation_info(base):
+    try:
+        state = json.loads((Path(base) / '.release-state.json').read_text(encoding='utf-8'))
+        return 'Commit: %s\nInstallerad: %s' % (str(state.get('commit', 'okänd'))[:12], state.get('installed_at', 'äldre installation – datum saknas'))
+    except (OSError, ValueError, TypeError, AttributeError):
+        return 'Commit/installationsdatum: saknas (manuell eller äldre installation)'

@@ -242,6 +242,28 @@ class HtmlGenerator(HtmlTemplatesMixin, BasePlugin):
     # PIPELINE
     # ==========================================================================
     def execute(self, context: dict, log=None) -> dict:
+        if context.get('_export_transaction') is not None:
+            return self._execute_unstaged(context, log)
+        gallery = context.get('gallery', {})
+        if not gallery.get('images_path'):
+            return self._execute_unstaged(context, log)
+        from export_transaction import ExportTransaction
+        destination = gallery.get('output_path') or (Path(__file__).parent.parent / 'out' / Path(gallery['images_path']).name)
+        transaction = ExportTransaction(destination)
+        context['_export_transaction'] = transaction
+        gallery['output_path'] = str(transaction.stage)
+        try:
+            result = self._execute_unstaged(context, log)
+            transaction.publish(result)
+            return result
+        finally:
+            context.pop('_export_transaction', None)
+            if not transaction.committed:
+                transaction.relocate(context, transaction.stage, transaction.destination)
+                context['_gallery_generated'] = False
+                transaction.abort()
+
+    def _execute_unstaged(self, context: dict, log=None) -> dict:
         """
         Generera HTML-galleri.
 
@@ -450,8 +472,9 @@ class HtmlGenerator(HtmlTemplatesMixin, BasePlugin):
         try:
             rec = context.get("_settings")
             if rec is not None and hasattr(rec, "record_generated_gallery"):
+                transaction = context.get('_export_transaction')
                 rec.record_generated_gallery(
-                    output_path, title,
+                    transaction.destination if transaction is not None else output_path, title,
                     len(entries), len(video_links),
                 )
         except Exception:
@@ -890,10 +913,10 @@ class HtmlGenerator(HtmlTemplatesMixin, BasePlugin):
                 new_name = dst.name
                 from media_support import video_to_web_mp4
                 if log:
-                    log('  Video → webb-MP4 (H.264/AAC): %s' % src.name)
+                    log('  Kontrollerar video – återanvänd, packa om eller konvertera: %s' % src.name)
                 progress_callback = getattr(self, '_media_progress_callback', None)
                 if callable(progress_callback):
-                    progress_callback(None, 'Konverterar video %d/%d – %s' % (i, len(sources), src.name))
+                    progress_callback(None, 'Förbereder webbvideo %d/%d – %s' % (i, len(sources), src.name))
                 cancel = getattr(self, '_media_cancel_check', None)
                 if cancel is None:
                     video_to_web_mp4(src, dst, self._find_ffmpeg())

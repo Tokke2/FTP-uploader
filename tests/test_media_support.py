@@ -87,7 +87,9 @@ class MediaSupportTests(unittest.TestCase):
         from types import SimpleNamespace
         owner = SimpleNamespace(_find_ffmpeg=lambda: 'ffmpeg', _safe_copy=lambda *args: self.fail('QuickTime must be converted'))
         with tempfile.TemporaryDirectory() as folder, patch('media_support.quicktime_to_mp4') as convert:
-            result = namespace['_copy_and_rename_media'](owner, [Path('clip.MOV')], Path(folder), 'standard', 'video', 'video')
+            source = Path(folder) / 'clip.MOV'
+            source.write_bytes(b'original-video')
+            result = namespace['_copy_and_rename_media'](owner, [source], Path(folder), 'standard', 'video', 'video')
             convert.assert_called_once()
             self.assertEqual(result[0]['relative_path'], 'video/video1.mp4')
             self.assertEqual(result[0]['original_name'], 'clip.MOV')

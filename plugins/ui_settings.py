@@ -1415,6 +1415,11 @@ class SettingsUI(GeneratedGalleryMixin, BasePlugin):
                 fullsize_max = (1920, 1080)
 
         output = self.get_output_path()
+        if output and context.get('_transactional_export'):
+            from export_transaction import ExportTransaction
+            transaction = ExportTransaction(output)
+            context['_export_transaction'] = transaction
+            output = transaction.stage
 
         # -- EXPORT AV PDF & VIDEOFILER --
         pdf_list = []

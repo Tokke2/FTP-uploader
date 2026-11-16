@@ -357,6 +357,8 @@ class App(tk.Tk):
         reset_startup_log()
         log_startup("0. App-konstruktor", "startar")
         log_startup("Programkopia", "version=%s mapp=%s Python=%s" % (APP_VERSION, BASE_DIR, sys.executable))
+        from auto_update import installation_info
+        log_startup('Installerad release', installation_info(BASE_DIR))
 
         # ── 1. Dölj OMEDELBART ────────────────────────────────
         self.withdraw()
@@ -837,6 +839,9 @@ class App(tk.Tk):
         progress = getattr(self, '_processing_progress', None)
         progress_job = progress.begin('Bearbetar filer') if progress is not None else None
         self.context.pop('_processing_image_failures', None)
+        self.context['_gallery_generated'] = False
+        self.context['_transactional_export'] = True
+        self.context.pop('_export_transaction', None)
         previous_progress = self.context.get('progress_callback')
         def progress_callback(value, message=None):
             if progress is not None:
@@ -856,6 +861,9 @@ class App(tk.Tk):
                 cancel_check = self.context.get('cancel_check')
                 if (stop_event is not None and stop_event.is_set()) or (callable(cancel_check) and cancel_check()):
                     raise RuntimeError('Jobbet stoppades före uppdatering eller av användaren.')
+                transaction = self.context.get('_export_transaction')
+                if transaction is not None and not transaction.committed and getattr(plugin, 'PRIORITY', 0) > 30:
+                    raise RuntimeError('HTML-export saknas; ingen uppladdning av ofärdigt galleri tillåts.')
                 if progress is not None:
                     progress.stage(progress_job, 'Steg %d/%d – %s' % (step_index, len(steps), plugin.PLUGIN_NAME))
                 if not hasattr(plugin, "execute"):
@@ -872,6 +880,13 @@ class App(tk.Tk):
                     _event('plugin.execute.end', plugin=name, seconds=round(_time.monotonic() - _step_start, 3))
                     if result is not None:   # BUG-002
                         self.context = result
+                    transaction = self.context.get('_export_transaction')
+                    if transaction is not None and self.context.get('_gallery_generated') and not transaction.committed:
+                        if progress is not None:
+                            progress.stage(progress_job, 'Kontrollerar länkar och publicerar galleri…')
+                        transaction.publish(self.context)
+                        if log_func:
+                            log_func('  Galleri verifierat och publicerat. Föregående export finns som säkerhetskopia.')
                 except Exception as exc:
                     _event_exception('plugin.execute.failed', type(exc), exc, exc.__traceback__, plugin=name)
                     msg = "[FEL] %s: %s" % (name, exc)
@@ -883,6 +898,12 @@ class App(tk.Tk):
             failed = True
             raise
         finally:
+            transaction = self.context.pop('_export_transaction', None)
+            self.context.pop('_transactional_export', None)
+            if transaction is not None and not transaction.committed:
+                transaction.relocate(self.context, transaction.stage, transaction.destination)
+                transaction.abort()
+                self.context['_gallery_generated'] = False
             if self.context.get('progress_callback') is progress_callback:
                 if previous_progress is None:
                     self.context.pop('progress_callback', None)
@@ -1884,7 +1905,7 @@ class App(tk.Tk):
             "Plugins:  %s/%s aktiva\n"
             "Python:   %s\n"
             "Systray:  %s\n\n"
-            "Loggfil:  logs/"
+            "Loggfil:  logs/\n%s\n"
             % (
                 APP_NAME,
                 APP_VERSION,
@@ -1894,6 +1915,7 @@ class App(tk.Tk):
                 len(self.plugins),
                 sys.version.split()[0],
                 "Ja" if HAS_SYSTRAY else "Nej (pip install pystray)",
+                __import__('auto_update').installation_info(BASE_DIR),
             ),
         )
 
