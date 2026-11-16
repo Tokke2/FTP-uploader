@@ -375,3 +375,9 @@ Startarna kontrollerar PATH och vanliga Python-platser. Om Python går att köra
 Endast när ingen körbar Python hittas erbjuds **guidad installation** efter godkännande: på Windows/macOS öppnas den officiella Python.org-sidan för senaste stabila installationsprogram; på Linux visas distributionsanpassade kommandon för stödd Python och Tk. Inget installationsprogram hämtas eller körs automatiskt, ingen administratörsbehörighet begärs av startaren. Slutför installationen själv och kör samma startfil igen. När Python sedan upptäcks visas ingen installationsfråga. En specialinstallation utanför sökplatserna behöver läggas i PATH.
 
 Windows måste tillåta Windows Script Host/VBScript, vilket vissa nya Windows-installationer eller företagsregler kan stänga av. På macOS/Linux behöver SH-startaren köras i terminal för installationserbjudandet. Dessa begränsningar kan inte kringgås med själva VBS-/SH-filerna. Python-installationen är ett användarval, inte en automatisk uppdatering av systemets befintliga Python.
+
+### Manuell uppdateringssökning och HTTP-fel
+
+**Hjälp → Sök efter uppdateringar** öppnar den manuella releasekontrollen direkt, även om automatiska kontroller är avstängda. Befintlig meny Uppdateringar och systemfältsmenyn behålls.
+
+Tillfälliga HTTP 404/429/5xx från GitHub får högst tre försök. Om `/releases/latest` svarar 404 provas listan med publicerade stabila releaser, aldrig main eller opublicerade taggar. Vid kvarstående fel visas HTTP-kod och den misslyckade adressen. Full traceback och historik läggs till i `logs/update.log` (tidigare fel skrivs inte längre över) och speglas i händelseloggen. En permanent 404 för en tagg/commit kräver fortfarande att releasekällan blir tillgänglig; ett fel döljs inte som ”redan uppdaterad”. VBS-/SH-startfilerna ingår nu också i uppdaterarens filomfång.

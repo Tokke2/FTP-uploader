@@ -613,6 +613,10 @@ class App(tk.Tk):
                                  show_update_settings(self, BASE_DIR))
         self.help_menu = tk.Menu(self.menubar, tearoff=0)
         self.menubar.add_cascade(label="Hjälp", menu=self.help_menu)
+        from auto_update import check_before_start
+        self.help_menu.add_command(label="Sök efter uppdateringar", command=lambda:
+                                   check_before_start(BASE_DIR, parent=self, manual=True))
+        self.help_menu.add_separator()
         from local_learning import show_learning
         self.help_menu.add_command(label="Lärande och förslag", command=lambda: show_learning(self))
         self.help_menu.add_command(

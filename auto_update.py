@@ -6,17 +6,55 @@ from pathlib import Path
 import queue
 import threading
 import urllib.request
+import urllib.error
 
 from app_paths import logs_dir, update_settings, save_update_settings
 
 API = 'https://api.github.com/repos/Tokke2/FTP-uploader/releases/latest'
 
 
+def open_release_url(request, timeout=20):
+    """Log the failing stage/address; bounded retries for transient GitHub errors."""
+    import time
+    from event_log import emit
+    for attempt in range(3):
+        try:
+            return urllib.request.urlopen(request, timeout=timeout)
+        except urllib.error.HTTPError as exc:
+            emit('update.http_error', 'ERROR', url=request.full_url, status=exc.code, attempt=attempt + 1)
+            if exc.code in (404, 429, 500, 502, 503, 504) and attempt < 2:
+                time.sleep(0.5 * (attempt + 1))
+                continue
+            raise
+
+
+def update_error_message(exc):
+    if isinstance(exc, urllib.error.HTTPError):
+        hint = {404: 'Release, tagg eller commit hittades inte. Den kan ha flyttats eller vara otillgänglig.',
+                403: 'GitHub nekade åtkomst eller API-gränsen har nåtts.',
+                429: 'GitHubs anropsgräns har nåtts. Försök senare.'}.get(exc.code, 'GitHub svarade med ett HTTP-fel.')
+        return 'Kunde inte uppdatera: HTTP %s. %s\nAdress: %s\nSe logs/update.log.' % (exc.code, hint, exc.url)
+    return 'Kunde inte uppdatera: %s\nSe logs/update.log.' % exc
+
+
 def latest_release():
     request = urllib.request.Request(API, headers={'Accept': 'application/vnd.github+json',
                                                   'User-Agent': 'FTP-uploader'})
-    with urllib.request.urlopen(request, timeout=15) as response:
-        release = json.load(response)
+    try:
+        with open_release_url(request, timeout=15) as response:
+            release = json.load(response)
+    except urllib.error.HTTPError as exc:
+        if exc.code != 404:
+            raise
+        # /latest can be temporarily absent. Only published stable releases,
+        # never main or the highest Git tag without an associated release.
+        request = urllib.request.Request(API.rsplit('/', 1)[0] + '?per_page=100',
+                                         headers={'Accept': 'application/vnd.github+json', 'User-Agent': 'FTP-uploader'})
+        with open_release_url(request, timeout=15) as response:
+            releases = json.load(response)
+        release = next((item for item in releases if not item.get('draft') and not item.get('prerelease')), None)
+        if release is None:
+            raise ValueError('Ingen publicerad stabil release hittades.')
     tag = release['tag_name']
     if release.get('draft') or release.get('prerelease') or not isinstance(tag, str):
         raise ValueError('Ingen stabil release.')
@@ -36,7 +74,7 @@ def release_commit(tag):
     url = endpoint + 'ref/tags/' + tag
     for _ in range(8):
         request = urllib.request.Request(url, headers={'User-Agent': 'FTP-uploader'})
-        with urllib.request.urlopen(request, timeout=15) as response:
+        with open_release_url(request, timeout=15) as response:
             obj = json.load(response)['object']
         sha = obj.get('sha', '')
         if not re.fullmatch(r'[0-9a-f]{40}', sha):
@@ -53,7 +91,7 @@ def managed_file(path):
     """Same file scope for comparison and installation."""
     path = Path(path)
     return ((len(path.parts) == 1 and
-             (path.suffix in ('.py', '.pyw') or path.name == 'requirements.txt'))
+             (path.suffix in ('.py', '.pyw') or path.name in ('requirements.txt', 'Starta.vbs', 'Starta.sh')))
             or (len(path.parts) > 1 and path.parts[0] == 'plugins' and path.suffix == '.py')
             or (len(path.parts) > 1 and path.parts[0] == 'icon' and path.suffix in ('.png', '.ico')))
 
@@ -66,7 +104,7 @@ def release_files(commit):
         raise ValueError('Ogiltig release-commit.')
     url = 'https://api.github.com/repos/Tokke2/FTP-uploader/git/trees/' + commit + '?recursive=1'
     request = urllib.request.Request(url, headers={'User-Agent': 'FTP-uploader'})
-    with urllib.request.urlopen(request, timeout=20) as response:
+    with open_release_url(request, timeout=20) as response:
         tree = json.load(response)
     if tree.get('truncated') or not isinstance(tree.get('tree'), list):
         raise ValueError('Ofullständig fillista från GitHub.')
@@ -179,7 +217,7 @@ def _install_release(base, release):
             archive = work / 'release.zip'
             url = 'https://api.github.com/repos/Tokke2/FTP-uploader/zipball/' + commit
             request = urllib.request.Request(url, headers={'User-Agent': 'FTP-uploader'})
-            with urllib.request.urlopen(request, timeout=30) as response, archive.open('wb') as output:
+            with open_release_url(request, timeout=30) as response, archive.open('wb') as output:
                 total = 0
                 while True:
                     chunk = response.read(1024 * 1024)
@@ -296,7 +334,15 @@ def check_before_start(base, parent=None, manual=False):
         try:
             results.put(('ok', action()))
         except Exception as exc:
-            results.put(('error', 'Kunde inte uppdatera: %s' % exc))
+            import traceback
+            from event_log import exception as log_exception
+            log_exception('update.failed', type(exc), exc, exc.__traceback__)
+            try:
+                with (logs_dir() / 'update.log').open('a', encoding='utf-8') as stream:
+                    stream.write(traceback.format_exc() + '\n')
+            except OSError:
+                pass
+            results.put(('error', update_error_message(exc)))
 
     def launch(action):
         threading.Thread(target=worker, args=(action,), daemon=True).start()
@@ -304,7 +350,9 @@ def check_before_start(base, parent=None, manual=False):
 
     def finish(message):
         try:
-            (logs_dir() / 'update.log').write_text(message + '\n', encoding='utf-8')
+            with (logs_dir() / 'update.log').open('a', encoding='utf-8') as stream:
+                from datetime import datetime
+                stream.write('[%s] %s\n' % (datetime.now().isoformat(), message))
         except OSError:
             pass
         if manual:
