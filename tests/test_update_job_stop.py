@@ -39,3 +39,34 @@ class UpdateJobStopTests(unittest.TestCase):
             self.assertEqual(source.read_bytes(), b'original')
             self.assertEqual(output.read_bytes(), b'old valid output')
             self.assertEqual(len(list(Path(folder).iterdir())), 2)
+
+    def test_in_app_install_reuses_existing_instance_guard_after_stop(self):
+        from auto_update import apply_release
+        from unittest.mock import patch
+        app = SimpleNamespace(context={}, plugins={}, _release_update_active=True)
+        request_job_stop(app)
+        with patch('auto_update._install_release', return_value='OK') as install, patch('socket.socket') as socket:
+            self.assertEqual(apply_release('/app', ('v1.0.0', 'a' * 40), running_app=app), 'OK')
+            install.assert_called_once()
+            socket.assert_not_called()
+
+    def test_in_app_install_cannot_skip_active_jobs_or_stop_guard(self):
+        from auto_update import apply_release
+        from unittest.mock import patch
+        app = SimpleNamespace(context={}, plugins={}, _release_update_active=True, _pipeline_busy=1)
+        with patch('auto_update._install_release') as install:
+            with self.assertRaises(RuntimeError):
+                apply_release('/app', ('v1.0.0', 'a' * 40), running_app=app)
+            request_job_stop(app)
+            with self.assertRaisesRegex(RuntimeError, 'jobb avslutas'):
+                apply_release('/app', ('v1.0.0', 'a' * 40), running_app=app)
+            install.assert_not_called()
+
+    def test_external_installer_still_rejects_running_app(self):
+        from auto_update import apply_release
+        from unittest.mock import patch
+        with patch('socket.socket') as socket, patch('auto_update._install_release') as install:
+            socket.return_value.__enter__.return_value.bind.side_effect = OSError('in use')
+            with self.assertRaisesRegex(RuntimeError, 'Appen körs redan'):
+                apply_release('/app', ('v1.0.0', 'a' * 40))
+            install.assert_not_called()

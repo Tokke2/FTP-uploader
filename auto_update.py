@@ -170,7 +170,19 @@ def check_release(base):
     return tag, commit
 
 
-def apply_release(base, release):
+def apply_release(base, release, *, running_app=None):
+    if running_app is not None:
+        # Only the in-app modal updater may reuse the GUI's instance guard.
+        # Unsaved edits were checked on the UI thread before this worker starts.
+        from restart_safety import active_job_reasons
+        event = getattr(running_app, '_update_stop_event', None)
+        if (not getattr(running_app, '_release_update_active', False)
+                or event is None or not event.is_set()):
+            raise RuntimeError('Uppdateringen saknar aktivt stopp- och installationsskydd.')
+        reasons = active_job_reasons(running_app)
+        if reasons:
+            raise RuntimeError('Väntar på att jobb avslutas: ' + ', '.join(reasons))
+        return _install_release(base, release)
     # Hold the app's existing single-instance port throughout installation.
     # A running GUI (or a competing startup) must not load half-updated code.
     import socket
@@ -476,7 +488,10 @@ def check_before_start(base, parent=None, manual=False):
             label.config(text='Laddar ned och installerar release %s …' % value[0])
             settings.pop('pending_release', None)
             save_update_settings(settings)
-            launch(lambda: apply_release(base, value))
+            if parent is not None:
+                launch(lambda: apply_release(base, value, running_app=parent))
+            else:
+                launch(lambda: apply_release(base, value))
         else:
             if installing and parent is not None:
                 try:

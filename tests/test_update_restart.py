@@ -90,7 +90,7 @@ class UpdateRestartTests(unittest.TestCase):
                 patch('auto_update.offer_installed_restart') as offer:
             auto_update.check_before_start('/app', parent=app, manual=True)
             callbacks.pop(0)()
-            install.assert_called_once_with('/app', release)
+            install.assert_called_once_with('/app', release, running_app=app)
             callbacks.pop(0)()
             offer.assert_called_once()
             root.grab_set.assert_called_once()
