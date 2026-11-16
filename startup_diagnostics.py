@@ -80,6 +80,15 @@ def install(base):
         pass
     from event_log import install as install_events
     install_events(_base)
+    import hashlib
+    import json
+    hashes = {}
+    for name in ('main.pyw', 'auto_update.py', 'plugins/advanced_logger.py', 'plugins/advanced_logger_guards.py'):
+        try:
+            hashes[name] = hashlib.sha256((_base / name).read_bytes()).hexdigest()[:16]
+        except OSError:
+            hashes[name] = 'saknas'
+    phase('Kodidentitet', json.dumps(hashes, ensure_ascii=False))
     def exiting():
         phase('Process avslutas', 'Sista steg framgår ovan. Avslut kan vara normal vidarestart eller stängning.')
     atexit.register(exiting)

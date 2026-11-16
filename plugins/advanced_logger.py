@@ -741,7 +741,14 @@ class AdvancedLogger(BasePlugin, UiCaptureMixin, DiagWindowMixin,
         try:
             report = self._build_report(source="startkontroll")
             window = report.get("window") or {}
-            severity = int(report.get("worst", 1))
+            severity = int(window.get('data', {}).get('severity', 1))
+            tray_state = window.get('data', {}).get('tray', {})
+            if (window.get('data', {}).get('state') == 'withdrawn'
+                    and tray_state.get('running') and not tray_state.get('visible')
+                    and getattr(self, '_tray_diag_retries', 0) < 4):
+                self._tray_diag_retries = getattr(self, '_tray_diag_retries', 0) + 1
+                self.safe_after(1000, self._startup_visibility_check)
+                return
             verdict = window.get("verdict", UNKNOWN)
             level = "FEL" if severity >= 4 else (
                 "VARNING" if severity == 3 else "SYSTEM")

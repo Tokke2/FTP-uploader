@@ -765,6 +765,17 @@ def window_report(app=None, context=None, logs_dir=None, startup_lines=None,
     else:
         tray_info = {"plugin": False}
     mgr = getattr(app, "_systray_mgr", None)
+    # Read the actual icon state, not only the delayed polling cache.
+    for owner in (tray, mgr):
+        if owner is None:
+            continue
+        icon = getattr(owner, 'tray_icon', None) or getattr(owner, '_icon', None)
+        try:
+            if icon is not None and icon.visible:
+                tray_info['visible'] = True
+                break
+        except Exception:
+            pass
     tray_info["main_mgr"] = bool(mgr)
     data["tray"] = tray_info
     if tray_info.get("plugin"):
@@ -886,13 +897,13 @@ def _verdict(state, mapped, on_screen, tray, start_min, port_free):
         if tray.get("running") and not tray.get("visible"):
             return (
                 "Fönstret är DOLT och systray-ikonen är INTE bekräftat "
-                "synlig -> appen är just nu ONÅBAR (P14-10).",
-                5,
+                "synlig ännu. Kontrollera igen efter tray-start; detta är inte bevis för att appen är onåbar.",
+                3,
             )
         if not tray.get("plugin"):
             return (
                 "Fönstret är DOLT och systray-pluginet saknas -> appen är "
-                "ONÅBAR. Sätt start_minimized=false eller installera pystray.",
+                "inte åtkomlig via systemfältet. Använd vanlig minimering eller installera pystray.",
                 5,
             )
         return (

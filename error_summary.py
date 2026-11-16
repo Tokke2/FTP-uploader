@@ -18,6 +18,15 @@ ERROR = re.compile(
 RECORD = re.compile(r'^\[?\d{2}(?:\d{2}-\d{2}-\d{2}[ T])?[:\d.-]*\s|^\[\d{2}:')
 
 
+def is_error_line(line):
+    """Classify events, not incidental words in successful status summaries."""
+    if re.search(r'\bfel:\s*(?:inga|0)\s*$', line, re.I):
+        return False
+    if re.search(r'\bSkrivna rader:\s*\d+\s*\(varav fel \d+\)', line, re.I):
+        return False
+    return bool(ERROR.search(line))
+
+
 def summary_path():
     return logs_dir() / 'all_errors.log'
 
@@ -83,11 +92,11 @@ class ErrorSummary:
                 if new_record:
                     active = False
                     issue = None
-                if ERROR.search(line) or dedicated:
+                if is_error_line(line) or dedicated:
                     active = True
                 if active and line:
                     self._write(path, line)
-                    if ERROR.search(line) and (issue is None or not self.register.is_open(issue) or new_record or re.match(r'^(?:FEL|ERROR|CRITICAL|FATAL)\b', line)):
+                    if is_error_line(line) and (issue is None or not self.register.is_open(issue) or new_record or re.match(r'^(?:FEL|ERROR|CRITICAL|FATAL)\b', line)):
                         issue = self.register.observe(path, line)
                     elif issue:
                         issue = self.register.detail(issue, line) or issue
@@ -95,7 +104,7 @@ class ErrorSummary:
             # A pathological unterminated line must not grow memory indefinitely.
             if len(remainder) > 256 * 1024:
                 line = remainder.decode('utf-8', errors='replace')
-                if active or ERROR.search(line) or dedicated:
+                if active or is_error_line(line) or dedicated:
                     self._write(path, line)
                 remainder = b''
             source.seek(0)

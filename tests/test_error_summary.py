@@ -88,3 +88,13 @@ class ErrorSummaryTests(unittest.TestCase):
             self.assertTrue((self.root / 'small.log.1').exists())
         finally:
             collector.close()
+
+    def test_successful_plugin_and_statistics_summaries_are_not_errors(self):
+        source = self.root / 'startup.log'
+        source.write_text('[2026-11-16 12:32:15.103] 11. Plugins | 14 laddade; fel: inga\n'
+                          '[17:39:27.393] [SYSTEM    ] Skrivna rader: 404 (varav fel 1)\n'
+                          '[2026-11-16 12:32:16.242] [FEL] Verkligt fel\n')
+        self.collector.collect()
+        self.assertNotIn('fel: inga', self.text())
+        self.assertNotIn('Skrivna rader', self.text())
+        self.assertIn('Verkligt fel', self.text())

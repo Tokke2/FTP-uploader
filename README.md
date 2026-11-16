@@ -381,3 +381,12 @@ Windows måste tillåta Windows Script Host/VBScript, vilket vissa nya Windows-i
 **Hjälp → Sök efter uppdateringar** öppnar den manuella releasekontrollen direkt, även om automatiska kontroller är avstängda. Befintlig meny Uppdateringar och systemfältsmenyn behålls.
 
 Tillfälliga HTTP 404/429/5xx från GitHub får högst tre försök. Om `/releases/latest` svarar 404 provas listan med publicerade stabila releaser, aldrig main eller opublicerade taggar. Vid kvarstående fel visas HTTP-kod och den misslyckade adressen. Full traceback och historik läggs till i `logs/update.log` (tidigare fel skrivs inte längre över) och speglas i händelseloggen. En permanent 404 för en tagg/commit kräver fortfarande att releasekällan blir tillgänglig; ett fel döljs inte som ”redan uppdaterad”. VBS-/SH-startfilerna ingår nu också i uppdaterarens filomfång.
+
+
+### Tolka loggarnas fönster- och felstatus
+
+Fönsterdiagnostiken läser nu faktisk `icon.visible` utöver tray-pluginens fördröjda cache. Om en tray-tråd körs men synlighet inte bekräftats väntar startkontrollen upp till fyra extra kontroller med en sekunds mellanrum; utebliven bekräftelse är en varning, inte bevis för att appen är onåbar. Fönstrets nivå tas från fönsterkontrollen, inte andra fel i samma diagnosrapport.
+
+Samlad felinsamling ignorerar statusrader som `fel: inga`, `fel: 0` och `Skrivna rader: ... (varav fel ...)`; riktiga felrader och tracebacks sparas som tidigare. Befintliga aktiva poster raderas eller markeras inte automatiskt – historiska falsklarm kan markeras som åtgärdade av användaren. Pip-varning om kvarlämnad `~il` efter lyckad Pillow-installation är en städvarning, inte bevis för att Pillow saknas. FFmpeg-varningen gäller videofunktionerna.
+
+`startup-early.log` innehåller nu `Kodidentitet` med korta SHA-256-avtryck för centrala moduler. Det gör det möjligt att skilja blandade/äldre programfiler från aktuell release trots samma versionsnummer.
