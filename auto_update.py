@@ -91,7 +91,7 @@ def managed_file(path):
     """Same file scope for comparison and installation."""
     path = Path(path)
     return ((len(path.parts) == 1 and
-             (path.suffix in ('.py', '.pyw') or path.name in ('requirements.txt', 'Starta.vbs', 'Starta.sh')))
+             (path.suffix in ('.py', '.pyw') or path.name in ('requirements.txt', 'Starta.vbs', 'Starta.sh', 'LICENSE', 'COPYRIGHT')))
             or (len(path.parts) > 1 and path.parts[0] == 'plugins' and path.suffix == '.py')
             or (len(path.parts) > 1 and path.parts[0] == 'icon' and path.suffix in ('.png', '.ico')))
 

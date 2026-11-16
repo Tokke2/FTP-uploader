@@ -390,3 +390,12 @@ Fönsterdiagnostiken läser nu faktisk `icon.visible` utöver tray-pluginens fö
 Samlad felinsamling ignorerar statusrader som `fel: inga`, `fel: 0` och `Skrivna rader: ... (varav fel ...)`; riktiga felrader och tracebacks sparas som tidigare. Befintliga aktiva poster raderas eller markeras inte automatiskt – historiska falsklarm kan markeras som åtgärdade av användaren. Pip-varning om kvarlämnad `~il` efter lyckad Pillow-installation är en städvarning, inte bevis för att Pillow saknas. FFmpeg-varningen gäller videofunktionerna.
 
 `startup-early.log` innehåller nu `Kodidentitet` med korta SHA-256-avtryck för centrala moduler. Det gör det möjligt att skilja blandade/äldre programfiler från aktuell release trots samma versionsnummer.
+
+
+## Licens och frivilligt stöd
+
+Appen är gratis att använda privat och kommersiellt, även inom företag och organisationer. Se `LICENSE` för fullständiga villkor: interna installations-/säkerhetskopior är tillåtna; försäljning av själva appen och omdistribution till tredje part ingår inte i tillståndet. Egna gallerier och annat eget material kan användas och säljas enligt villkoren. Detta är en användningslicens, inte en open-source-licens. Tredjepartskomponenternas villkor gäller separat.
+
+**♥ Stöd utvecklingen** i huvudmenyn och **Hjälp → Stöd utvecklingen** öppnar ett frivilligt donationsfönster med appens färger, beloppsval och PayPal-/Ko-fi-länkar. Swish-knappen öppnar den befintliga stödsidan `https://tokke2.github.io/recept/stod.html`; inget Swish-nummer har lagts till eller gissats och appens belopp förs inte över dit. Betalning utförs i extern tjänst efter användarens godkännande. Ingen automatisk betalning, spårning, donationsstatistik eller funktionsupplåsning läggs till.
+
+Mottagarlänkarna ligger fast i programkoden och är inte redigerbara i inställningar eller donationsfönstret. Beloppet är däremot valfritt. Detta är ett UI-/konfigurationslås, inte ett löfte om manipulationsskydd på en dator där användaren kan ändra Python-koden. Kontrollera alltid mottagare hos betaltjänsten. Licensen visas skrivskyddad via **Hjälp → Licens** och ingår i releasepaketet och uppdaterarens filomfång.
