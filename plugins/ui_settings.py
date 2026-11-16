@@ -1363,8 +1363,10 @@ class SettingsUI(GeneratedGalleryMixin, BasePlugin):
             f for f in p.iterdir()
             if f.is_file() and f.suffix.lower() in self.IMAGE_FORMATS
         ]
-        if not imgs:
-            raise ValueError("Inga bilder i mappen:\n%s" % folder)
+        media = [f for f in p.iterdir() if f.is_file() and
+                 f.suffix.lower() in (self.VIDEO_FORMATS | {'.pdf'})]
+        if not imgs and not media:
+            raise ValueError("Inga bilder, videor eller PDF-filer i mappen:\n%s" % folder)
         return True
 
     def _get_bg(self) -> str:
@@ -1394,7 +1396,7 @@ class SettingsUI(GeneratedGalleryMixin, BasePlugin):
         except ValueError as e:
             if log:
                 log("  [!] Installningar ogiltiga: %s" % e)
-            return context
+            raise ValueError('Kan inte generera galleri: %s' % e) from e
 
         try:
             tw, th     = self.thumb_size_var.get().split("x")

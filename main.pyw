@@ -846,6 +846,11 @@ class App(tk.Tk):
         self.context['progress_callback'] = progress_callback
         try:
             steps = [(name, plugin) for name, plugin in self.get_plugins(only_enabled=True) if hasattr(plugin, 'execute')]
+            settings_plugin = self.context.get('_settings')
+            if settings_plugin is not None and hasattr(settings_plugin, 'execute') and not any(plugin is settings_plugin for _, plugin in steps):
+                # Preparing input settings is mandatory even when its optional UI
+                # plugin was excluded from the saved pipeline selection.
+                steps.insert(0, ('ui_settings', settings_plugin))
             for step_index, (name, plugin) in enumerate(steps, 1):
                 if progress is not None:
                     progress.stage(progress_job, 'Steg %d/%d – %s' % (step_index, len(steps), plugin.PLUGIN_NAME))

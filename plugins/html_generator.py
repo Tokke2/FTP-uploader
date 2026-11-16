@@ -255,6 +255,7 @@ class HtmlGenerator(HtmlTemplatesMixin, BasePlugin):
           7. Generera slideshow.html
           8. Sätt context-nycklar
         """
+        context['_gallery_generated'] = False
         gallery = context.get("gallery", {})
 
         title         = gallery.get("title", "")
@@ -281,9 +282,7 @@ class HtmlGenerator(HtmlTemplatesMixin, BasePlugin):
 
         # ── Validering ────────────────────────────────────────
         if not images_path_s:
-            if log:
-                log("  [!] Ingen images_path - hoppar over")
-            return context
+            raise ValueError('Källmapp saknas. Välj en mapp med bilder eller originalvideor i Inställningar.')
 
         images_path = Path(images_path_s)
 
@@ -317,13 +316,16 @@ class HtmlGenerator(HtmlTemplatesMixin, BasePlugin):
             context, images_path, output_path, output_format, log,
         )
 
-        if gallery.get('watermark_enabled') is True and not context.get('processed_images'):
+        if entries and gallery.get('watermark_enabled') is True and not context.get('processed_images'):
             raise ValueError('Logotyp som vattenstämpel kräver aktiverad bildprocessor. Generera om från källbilderna.')
 
         if not entries:
+            video_inputs = self._collect_media(context, images_path, ['video_files', 'gallery_videos', 'video'], self.VIDEO_FORMATS)
+            pdf_inputs = self._collect_media(context, images_path, ['pdf_files', 'gallery_pdfs', 'pdf'], self.PDF_FORMATS)
+            if not video_inputs and not pdf_inputs:
+                raise ValueError('Inga bilder, videor eller PDF-filer att generera ett galleri av.')
             if log:
-                log("  [!] Inga bilder att generera HTML for")
-            return context
+                log('  Galleri utan stillbilder: %d videor, %d PDF-filer.' % (len(video_inputs), len(pdf_inputs)))
 
         # ── Output-mappar ─────────────────────────────────────
         output_path.mkdir(parents=True, exist_ok=True)
@@ -338,7 +340,7 @@ class HtmlGenerator(HtmlTemplatesMixin, BasePlugin):
 
         from .gallery_checks import cover_options
         cover_number, _ = cover_options(gallery)
-        if cover_number > len(entries):
+        if entries and cover_number > len(entries):
             raise ValueError('Omslagsbildens nummer överstiger antalet bilder.')
 
         # ── Kopiera bilder ────────────────────────────────────
@@ -349,9 +351,9 @@ class HtmlGenerator(HtmlTemplatesMixin, BasePlugin):
             entries, output_path, output_format, gallery, context, log)
         context['optimization_report_path'] = str(output_path / 'optimization-report.html')
         from .gallery_checks import prepare_cover
-        cover_meta = prepare_cover(entries, output_path, gallery, title, description)
+        cover_meta = prepare_cover(entries, output_path, gallery, title, description) if entries else ''
         custom_head = cover_meta + '\n' + custom_head
-        if not gallery.get('public_url') and log:
+        if entries and not gallery.get('public_url') and log:
             log('  Omslag skapat; ange publik galleri-URL för bild vid länkdelning.')
 
 
@@ -454,6 +456,7 @@ class HtmlGenerator(HtmlTemplatesMixin, BasePlugin):
         except Exception:
             pass
 
+        context['_gallery_generated'] = True
         if not context.get('_defer_learning'):
             from local_learning import record_export
             record_export(gallery, context['optimization_report'], log)

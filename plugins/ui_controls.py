@@ -1598,8 +1598,12 @@ class ControlsUI(BasePlugin):
             self.app.context["progress_callback"] = progress_callback
             self.app.context["cancel_check"]      = lambda: self.cancel_requested
 
-            # Kor pipeline direkt i traden
+            # A previous export on disk is not evidence this run succeeded.
+            self.app.context['_gallery_generated'] = False
             self.app.run_pipeline(self.write_log)
+            generated = self.app.context.get('html_output')
+            if not self.app.context.get('_gallery_generated') or not generated or not Path(generated).is_file():
+                raise RuntimeError('Inget nytt galleri skapades. Kontrollera källmapp och att HTML-generatorn är aktiverad.')
 
             self.app.after(0, self._on_generation_complete)
         except Exception as e:

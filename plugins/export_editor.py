@@ -75,7 +75,7 @@ def write_manifest(output, entries, gallery, output_format, context):
     from .gallery_checks import cover_options
     number, url = cover_options(gallery)
     data['gallery'].update(cover_image=number, public_url=url)
-    data['assets'] = ['cover.jpg'] + [v['src'] for entry in entries for v in entry.get('variants', [])]
+    data['assets'] = (['cover.jpg'] if entries else []) + [v['src'] for entry in entries for v in entry.get('variants', [])]
     data['assets'] += [entry['download'] for entry in entries if entry.get('download')]
     data['gallery'].update(export_options(gallery))
     # Only exported original copies are portable. Never persist absolute local paths.

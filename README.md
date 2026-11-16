@@ -454,3 +454,9 @@ Du behöver inte köra Video-flikens manuella konvertering först. **Generera ga
 Exporterad HTML och videominiatyrer använder den konverterade MP4-filen. Originalen ändras inte. Vid omexport i samma mapp väljs ett annat utfilnamn om det normala namnet skulle krocka med någon av ingångsvideorna. FFmpeg-sökvägen från Video-pluginens konfiguration prioriteras när den är tillgänglig, annars används ordinarie sökning och paketets reservbinär. Progressdialogen visar vilken video som konverteras. Vid konverteringsfel avbryts exporten med fel i stället för att länka till en video som inte har konverterats.
 
 Videoflikens manuella inställningar för andra kodekar påverkar inte webbnormaliseringen. Videor kodas om vid export; stora klipp kan därför ta tid och diskplats. H.264/AAC ger brett stöd men garanterar inte uppspelning på varje enhet eller av DRM-skyddat/skadat innehåll. HDR/Dolby Vision-matchning och bevarande av alla metadata/spår garanteras inte.
+
+### Galleri med enbart originalvideor (inga stillbilder)
+
+Källmappen får innehålla **bara videor**, bara PDF-filer eller en blandning med bilder. Tidigare krävde inställningsvalideringen stillbilder och HTML-steget hoppade också över tom bildlista, vilket kunde ge ett felaktigt ”Klart” utan ny export. Nu krävs minst en igenkänd bild/video/PDF i stället. HTML exporteras även utan bildkort; videokorten använder de automatiskt konverterade MP4-filerna. Utan stillbilder krävs ingen bildbaserad cover.jpg i manifestet.
+
+Inställningsförberedelsen körs även om inställningspluginen valts bort från de valfria pipeline-stegen. Saknad källmapp och tom export rapporteras som fel. Kontroller-flikens slutdialog kräver en uttrycklig markering från aktuell HTML-generering samt en existerande indexfil; en gammal index.html räknas inte som en ny lyckad generering. HTML-generatorn måste fortfarande vara aktiverad. Originalvideor behöver inte bearbetas manuellt i Video-fliken först.
