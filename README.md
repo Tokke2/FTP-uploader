@@ -1,6 +1,6 @@
 # FTP-uploader
 
-Python-app för Windows, macOS och Linux. Ingen virtuell miljö, BAT, VBS, shellstartare eller Git-installation behövs för att köra appen.
+Python-app för Windows, macOS och Linux. Ingen virtuell miljö, BAT eller Git-installation behövs. Valfria startfiler: `Starta.vbs` för Windows och `Starta.sh` för macOS/Linux.
 
 ## Installation och start
 
@@ -364,3 +364,14 @@ Autostartgenvägen får nu `--autostart` och Windows-kommandot för minimerad vi
 Genvägens faktiska innehåll verifieras med hash, inte bara en separat metadatafil. Saknad/tom genväg rapporteras som fel och ändrad genväg repareras när autostart är valt. Windows egen inaktivering under Inställningar > Appar > Autostart upptäcks och loggas som `autostart.status`/`autostart.disabled_by_windows`; den åsidosätts inte i hemlighet. Vid aktivering visas instruktion om Windows har blockerat posten. En korrekt installerad genväg kan fortfarande blockeras av systempolicy eller Windows inställningar.
 
 Efter uppdatering: starta appen manuellt en gång så att gamla genvägar migreras, aktivera **Starta med Windows**, kontrollera Windows autostartinställningar och prova därefter utloggning/inloggning. Autostart betyder inloggning för aktuell användare, inte en tjänst före inloggning. Felsök med `logs/events_*.log`, `logs/startup-early.log` och `logs/python-discovery.log`.
+
+
+## Starta utan förinstallerad Python: VBS och SH
+
+I samma releasepaket ingår `Starta.vbs` (Windows, konsolfri start) och `Starta.sh` (macOS/Linux, kör `sh Starta.sh` i terminalen). Ingen `Installera senaste Python.bat` ingår.
+
+Startarna kontrollerar PATH och vanliga Python-platser. Om Python går att köra startar de `start.pyw` direkt, utan installations-/uppgraderingsfråga. Saknad Tk eller för gammal befintlig Python är ett appfel, inte anledning att erbjuda en parallellinstallation. Den ordinarie Python-startaren väljer därefter en kompatibel installation och appen startar minimerad.
+
+Endast när ingen körbar Python hittas erbjuds **guidad installation** efter godkännande: på Windows/macOS öppnas den officiella Python.org-sidan för senaste stabila installationsprogram; på Linux visas distributionsanpassade kommandon för stödd Python och Tk. Inget installationsprogram hämtas eller körs automatiskt, ingen administratörsbehörighet begärs av startaren. Slutför installationen själv och kör samma startfil igen. När Python sedan upptäcks visas ingen installationsfråga. En specialinstallation utanför sökplatserna behöver läggas i PATH.
+
+Windows måste tillåta Windows Script Host/VBScript, vilket vissa nya Windows-installationer eller företagsregler kan stänga av. På macOS/Linux behöver SH-startaren köras i terminal för installationserbjudandet. Dessa begränsningar kan inte kringgås med själva VBS-/SH-filerna. Python-installationen är ett användarval, inte en automatisk uppdatering av systemets befintliga Python.
