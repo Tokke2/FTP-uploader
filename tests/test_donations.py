@@ -56,3 +56,19 @@ class DonationTests(unittest.TestCase):
             with self.assertRaises(KeyError):
                 open_payment('https://example.invalid')
             browser.assert_not_called()
+
+
+    def test_personal_support_text_is_voluntary_and_not_a_paywall(self):
+        from donations import SUPPORT_TEXT
+        self.assertIn('privat och i företag', SUPPORT_TEXT)
+        self.assertIn('Ingen donation krävs', SUPPORT_TEXT)
+        self.assertIn('inga funktioner låses upp', SUPPORT_TEXT)
+        self.assertIn('Rickard Längkvist', SUPPORT_TEXT)
+
+    def test_donation_dialog_is_available_under_help(self):
+        text = (ROOT / 'main.pyw').read_text()
+        self.assertIn('self.help_menu.add_command(label="Donationer / Stöd utvecklingen…"', text)
+        self.assertNotIn('self.menubar.add_command(label="♥ Stöd utvecklingen"', text)
+        dialog = (ROOT / 'donations.py').read_text()
+        self.assertIn("window.bind('<Escape>'", dialog)
+        self.assertIn("label(SUPPORT_TEXT)", dialog)

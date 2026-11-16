@@ -618,8 +618,7 @@ class App(tk.Tk):
                                    check_before_start(BASE_DIR, parent=self, manual=True))
         self.help_menu.add_separator()
         from donations import show_donations, show_license
-        self.menubar.add_command(label="♥ Stöd utvecklingen", command=lambda: show_donations(self))
-        self.help_menu.add_command(label="Stöd utvecklingen – frivillig donation", command=lambda: show_donations(self))
+        self.help_menu.add_command(label="Donationer / Stöd utvecklingen…", command=lambda: show_donations(self))
         self.help_menu.add_command(label="Licens – privat och kommersiellt bruk", command=lambda: show_license(self))
         from local_learning import show_learning
         self.help_menu.add_command(label="Lärande och förslag", command=lambda: show_learning(self))

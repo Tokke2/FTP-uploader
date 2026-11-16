@@ -15,6 +15,17 @@ PAYMENT_LINKS = MappingProxyType({
     'kofi': 'https://ko-fi.com/tokke2',
 })
 
+SUPPORT_TEXT = (
+    'Har FTP Uploader gjort din vardag lite enklare?\n\n'
+    'Appen är gratis att använda, både privat och i företag. Om du vill '
+    'kan du lämna en frivillig gåva som ett tack och stöd till fortsatt '
+    'utveckling, felsökning och underhåll.\n\n'
+    'Du väljer själv belopp. Ingen donation krävs, inga funktioner låses upp '
+    'och du kan fortsätta använda appen precis som vanligt utan att betala.\n\n'
+    'Tack för att du använder FTP Uploader – ditt stöd uppskattas!\n'
+    'Rickard Längkvist'
+)
+
 
 def open_payment(service):
     """Only predefined recipient profiles; no URL from settings or input."""
@@ -34,9 +45,11 @@ def show_donations(parent):
             pass
     window = tk.Toplevel(parent)
     parent._donation_window = window
-    window.title('Stöd FTP Uploader')
+    window.title('Donationer – Stöd FTP Uploader')
     window.configure(bg='#090f26')
-    window.geometry('520x650')
+    window.geometry('560x740')
+    window.bind('<Escape>', lambda event: window.destroy())
+    window.protocol('WM_DELETE_WINDOW', window.destroy)
     window.minsize(380, 400)
     from app_icon import apply_tk_window_icon
     apply_tk_window_icon(window)
@@ -60,6 +73,7 @@ def show_donations(parent):
 
     label('FRIVILLIGT STÖD · INGA LÅSTA FUNKTIONER', 9, '#26dce0', True)
     label('Stöd utvecklingen', 24, '#ffffff', True)
+    label(SUPPORT_TEXT)
     label('Skanna med Swish', 17, '#c885ff', True)
     label('Öppna Swish och välj Skanna.\nVälj själv belopp i Swish-appen.')
     try:
