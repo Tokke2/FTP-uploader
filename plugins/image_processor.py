@@ -182,6 +182,7 @@ class ImageProcessor(BasePlugin):
 
         Returnerar context (alltid).
         """
+        context['_processing_image_failures'] = 0
         gallery         = context.get("gallery", {})
         tray_status = context.get('_tray_status')
         progress_cb     = context.get("progress_callback")
@@ -252,6 +253,7 @@ class ImageProcessor(BasePlugin):
             )
 
         processed = [r for r in results if r]
+        context['_processing_image_failures'] = max(0, total - len(processed)) if not cfg.get('cancelled') else 0
         if tray_status is not None and len(processed) < total and not cfg.get('cancelled'):
             tray_status.issue()
 

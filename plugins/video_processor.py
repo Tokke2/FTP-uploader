@@ -885,10 +885,25 @@ class VideoProcessor(VideoProcessorUIMixin, BasePlugin):
             target=self._process_all_worker,
             args=(video_out, image_out, image_files,
                   do_video, bool(image_files)),
-            daemon=True,
+            daemon=True, name='MediaProcessingThread',
         ).start()
 
-    def _process_all_worker(
+    def _process_all_worker(self, *args) -> None:
+        progress = getattr(self.app, '_processing_progress', None)
+        self._processing_progress_job = progress.begin('Bearbetar video och bilder') if progress else None
+        failed = False
+        try:
+            self._process_all_work(*args)
+        except Exception as exc:
+            failed = True
+            self.progress_queue.put(('error', exc))
+        finally:
+            if progress:
+                progress.finish(self._processing_progress_job,
+                                failed=failed or bool(self.stats.get('failed')),
+                                cancelled=self.cancel_requested)
+
+    def _process_all_work(
         self, video_out, image_out, image_files,
         do_video, do_images
     ) -> None:
@@ -918,6 +933,9 @@ class VideoProcessor(VideoProcessorUIMixin, BasePlugin):
                     break
 
                 vp = vd["path"]
+                progress = getattr(self.app, '_processing_progress', None)
+                if progress:
+                    progress.stage(self._processing_progress_job, 'Video %d/%d – %s' % (i + 1, len(self.video_queue), vp.name))
                 self.progress_queue.put(
                     ("tree_update", (vd["item_id"], "Bearbetar..."))
                 )
@@ -978,6 +996,9 @@ class VideoProcessor(VideoProcessorUIMixin, BasePlugin):
                     self.queue_log("FEL %s: %s" % (vp.name, e), "error")
 
                 done_items += 1
+                progress = getattr(self.app, '_processing_progress', None)
+                if progress:
+                    progress.stage(self._processing_progress_job, '%d/%d filer behandlade' % (done_items, total_items), 100 * done_items / max(1, total_items))
                 self.progress_queue.put(
                     ("overall", "%d/%d" % (done_items, total_items))
                 )
@@ -992,6 +1013,9 @@ class VideoProcessor(VideoProcessorUIMixin, BasePlugin):
                 if self.cancel_requested:
                     break
 
+                progress = getattr(self.app, '_processing_progress', None)
+                if progress:
+                    progress.stage(self._processing_progress_job, 'Bild %d/%d – %s' % (i + 1, len(image_files), img_path.name))
                 self.progress_queue.put(("file",   img_path.name))
                 self.progress_queue.put(
                     ("status", "Bild %d/%d" % (i + 1, len(image_files)))
@@ -1033,6 +1057,9 @@ class VideoProcessor(VideoProcessorUIMixin, BasePlugin):
                     )
 
                 done_items += 1
+                progress = getattr(self.app, '_processing_progress', None)
+                if progress:
+                    progress.stage(self._processing_progress_job, '%d/%d filer behandlade' % (done_items, total_items), 100 * done_items / max(1, total_items))
                 self.progress_queue.put(("current", 100))
                 self.progress_queue.put(
                     ("overall", "%d/%d" % (done_items, total_items))

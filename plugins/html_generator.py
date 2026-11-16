@@ -371,6 +371,7 @@ class HtmlGenerator(HtmlTemplatesMixin, BasePlugin):
             pdf_sources, output_path, output_format,
             prefix="pdf", subdir="pdf", log=log,
         )
+        self._media_progress_callback = context.get('progress_callback')
         video_links = self._copy_and_rename_media(
             video_sources, output_path, output_format,
             prefix="video", subdir="video", log=log,
@@ -880,6 +881,9 @@ class HtmlGenerator(HtmlTemplatesMixin, BasePlugin):
                 from media_support import quicktime_to_mp4
                 if log:
                     log('  QuickTime → MP4: %s' % src.name)
+                progress_callback = getattr(self, '_media_progress_callback', None)
+                if callable(progress_callback):
+                    progress_callback(None, 'Konverterar QuickTime %d/%d – %s' % (i, len(sources), src.name))
                 quicktime_to_mp4(src, dst, self._find_ffmpeg())
             else:
                 self._safe_copy(src, dst)

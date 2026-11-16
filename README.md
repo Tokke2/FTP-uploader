@@ -425,3 +425,9 @@ Efter lyckad installation i den körande appen visas **Starta om nu** och **Sena
 Pågående pipeline/bakgrundsjobb och kända osparade ändringar stoppar direktinstallation/omstart. Spara och avsluta jobbet, sök sedan igen. Installationsdialogen blockerar nya UI-åtgärder under filbytet och samtidig manuell kontroll förhindras. En ny säkerhetskontroll görs när nedräkningen löper ut. Vid fel erbjuds ingen automatisk omstart. Ladda ned/installation kan ta längre än tre sekunder; nedräkningen börjar först efter lyckad installation.
 
 Har du laddat ned FFmpeg separat: packa upp arkivet och välj `bin/ffmpeg.exe` i Video-flikens FFmpeg-sökväg och testa den där. FFprobe kan väljas separat för detaljerad videoinformation.
+
+## Synlig filbearbetning
+
+Pipeline-körning (även från Kör-menyn) och bearbetning i Video-fliken visar nu en separat **Filbearbetning**-dialog. Den visar aktuellt steg/fil, procent när en plugin rapporterar mätbar progress och förfluten tid. Under exempelvis en lång QuickTime-konvertering används en animerad stapel utan påhittad procent eller ETA. Förfluten tid betyder att jobbet fortfarande är aktivt – det bevisar inte att en extern codec gör framsteg.
+
+Worker-trådar lägger bara händelser i en trådsäker, begränsad kö; dialogen uppdateras av Tk-tråden var 100 ms. Täta progresshändelser slås ihop så att stora bildmängder inte fyller UI-kön. Varje jobb har egen status. Nästa plugin växlar tillbaka till rörlig stapel tills ny procent finns. Slutstatus skiljer klart, fel och avbrutet; befintliga Avbryt-knappar behålls. **Dölj** eller X döljer endast progressdialogen och avbryter inte jobbet. Dialogen är rullningsfri och kan storleksändras; verkligt utseende på Windows/macOS behöver verifieras.

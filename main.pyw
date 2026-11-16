@@ -428,6 +428,8 @@ class App(tk.Tk):
 
         # ── 9. Bygg bas-UI ────────────────────────────────────
         self._build_base_ui()
+        from processing_progress import ProcessingProgress
+        self._processing_progress = ProcessingProgress(self)
         log_startup("9. Bas-UI byggd", "main_frame + notebook + menyer")
 
         # ── 10. Bindningar ────────────────────────────────────
@@ -832,8 +834,21 @@ class App(tk.Tk):
         import uuid as _uuid
         _job_token = _log_job.set(_uuid.uuid4().hex[:12])
         _event('pipeline.begin')
+        progress = getattr(self, '_processing_progress', None)
+        progress_job = progress.begin('Bearbetar filer') if progress is not None else None
+        self.context.pop('_processing_image_failures', None)
+        previous_progress = self.context.get('progress_callback')
+        def progress_callback(value, message=None):
+            if progress is not None:
+                progress.stage(progress_job, message or 'Bearbetar filer…', value)
+            if callable(previous_progress) and value is not None:
+                previous_progress(value, message)
+        self.context['progress_callback'] = progress_callback
         try:
-            for name, plugin in self.get_plugins(only_enabled=True):
+            steps = [(name, plugin) for name, plugin in self.get_plugins(only_enabled=True) if hasattr(plugin, 'execute')]
+            for step_index, (name, plugin) in enumerate(steps, 1):
+                if progress is not None:
+                    progress.stage(progress_job, 'Steg %d/%d – %s' % (step_index, len(steps), plugin.PLUGIN_NAME))
                 if not hasattr(plugin, "execute"):
                     continue
                 if status is not None:
@@ -859,6 +874,19 @@ class App(tk.Tk):
             failed = True
             raise
         finally:
+            if self.context.get('progress_callback') is progress_callback:
+                if previous_progress is None:
+                    self.context.pop('progress_callback', None)
+                else:
+                    self.context['progress_callback'] = previous_progress
+            if progress is not None:
+                cancel_check = self.context.get('cancel_check')
+                cancelled = False
+                try:
+                    cancelled = bool(cancel_check()) if callable(cancel_check) else False
+                except Exception:
+                    pass
+                progress.finish(progress_job, failed=failed or bool(self.context.get('_processing_image_failures')), cancelled=cancelled)
             if status is not None:
                 status.finish(token, failed)
             _event('pipeline.end', 'ERROR' if failed else 'INFO', failed=failed)
