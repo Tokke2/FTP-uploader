@@ -823,6 +823,8 @@ class App(tk.Tk):
         BUG-002 fix: None-returvärde ignoreras
         (context ersätts bara om result is not None).
         """
+        if getattr(self, '_release_update_active', False):
+            raise RuntimeError('Uppdateringskontroll/installation pågår. Vänta tills dialogen är stängd.')
         self._pipeline_busy = getattr(self, '_pipeline_busy', 0) + 1
         status = self.context.get('_tray_status')
         token = status.begin() if status is not None else None

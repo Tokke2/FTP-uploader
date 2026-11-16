@@ -312,16 +312,101 @@ def _install_release(base, release):
         lock.unlink(missing_ok=True)
 
 
+def live_update_blockers(app):
+    from restart_safety import unsaved_reasons
+    reasons = unsaved_reasons(app)
+    if getattr(app, '_pipeline_busy', 0):
+        reasons.append('pipeline körs')
+    for name, plugin in getattr(app, 'plugins', {}).items():
+        if any(getattr(plugin, attr, False) for attr in ('is_generating', 'is_processing', 'is_uploading')):
+            reasons.append(str(name) + ' arbetar')
+    workers = [thread.name for thread in threading.enumerate()
+               if thread is not threading.main_thread() and thread.is_alive()
+               and any(word in thread.name.lower() for word in ('pipeline', 'upload', 'process', 'export', 'generate'))]
+    return reasons + workers
+
+
+class RestartCountdown:
+    """Cancellable three-second restart; all callbacks run on the UI thread."""
+    def __init__(self, window, display, restart, seconds=3):
+        self.window, self.display, self.restart = window, display, restart
+        self.seconds, self.cancelled, self.timer = seconds, False, None
+
+    def start(self):
+        self.display(self.seconds)
+        self.timer = self.window.after(1000, self.tick)
+
+    def tick(self):
+        if self.cancelled:
+            return
+        self.seconds -= 1
+        if self.seconds <= 0:
+            self.cancelled = True
+            self.restart()
+        else:
+            self.start()
+
+    def cancel(self):
+        self.cancelled = True
+        if self.timer is not None:
+            self.window.after_cancel(self.timer)
+            self.timer = None
+
+
+def restart_installed(app, base):
+    reasons = live_update_blockers(app)
+    if reasons:
+        raise RuntimeError('Omstart uppskjuten: ' + ', '.join(reasons))
+    from release_scheduler import spawn, python_executable
+    app._save_all_settings()
+    # The helper waits for shutdown/instance-lock release; no second download.
+    spawn([python_executable(), str(Path(base) / 'release_scheduler.py'),
+           '--restart', str(base), '-', '-'])
+    app.quit_app()
+
+
+def offer_installed_restart(root, app, base, label):
+    import tkinter as tk
+    from tkinter import messagebox
+    def later():
+        countdown.cancel()
+        root.destroy()
+    def restart_now():
+        countdown.cancel()
+        try:
+            restart_installed(app, base)
+        except Exception as exc:
+            messagebox.showwarning('Omstart uppskjuten', str(exc), parent=root)
+        else:
+            root.destroy()
+    countdown = RestartCountdown(root, lambda remaining: label.config(
+        text='Uppdateringen är installerad. Startar om om %d sekunder.\nVälj Senare för att fortsätta utan omstart.' % remaining), restart_now)
+    tk.Button(root, text='Starta om nu', command=restart_now).pack(side='left', padx=15, pady=12)
+    tk.Button(root, text='Senare', command=later).pack(side='right', padx=15, pady=12)
+    root.protocol('WM_DELETE_WINDOW', later)
+    root.bind('<Escape>', lambda event: later())
+    countdown.start()
+
+
 def check_before_start(base, parent=None, manual=False):
     """All network/file work runs outside Tk; confirmations run on Tk thread."""
     import tkinter as tk
     from tkinter import messagebox
+    if parent is not None and getattr(parent, '_release_update_active', False):
+        return
     settings = update_settings()
     mode = settings['mode']
     pending = settings.get('pending_release') if not manual else None
     if not pending and not manual and (mode == 'off' or os.environ.get('FTP_UPLOADER_AUTOUPDATE') == '0'):
         return
     root = tk.Tk() if parent is None else tk.Toplevel(parent)
+    if parent is not None:
+        parent._release_update_active = True
+        def release_flag(event):
+            if event.widget is root:
+                parent._release_update_active = False
+        root.bind('<Destroy>', release_flag, add='+')
+    installing = False
     root.title('FTP-uploader – uppdateringar')
     from app_icon import apply_tk_window_icon
     apply_tk_window_icon(root)
@@ -360,6 +445,7 @@ def check_before_start(base, parent=None, manual=False):
         root.destroy()
 
     def poll():
+        nonlocal installing
         try:
             status, value = results.get_nowait()
         except queue.Empty:
@@ -368,24 +454,36 @@ def check_before_start(base, parent=None, manual=False):
         if status == 'error':
             finish(value)
         elif isinstance(value, tuple):
-            approved = (not manual and (mode == 'auto' or pending == value[0]))
+            approved = manual or mode == 'auto' or pending == value[0]
             if not approved:
                 approved = messagebox.askyesno('Ny stabil release',
-                    'Release %s finns. %s' % (value[0],
-                    'Installera vid nästa appstart?' if manual else 'Installera nu före appstart?'), parent=root)
+                    'Release %s finns. Ladda ned och installera nu?' % value[0], parent=root)
             if not approved:
                 finish('Uppdateringen avböjdes.')
-            elif manual:
-                save_update_settings(dict(settings, pending_release=value[0]))
-                finish('Release %s installeras vid nästa start via start.pyw.' % value[0])
-            else:
-                label.config(text='Installerar release %s …' % value[0])
-                # Consume the queued request before attempting installation.
-                settings.pop('pending_release', None)
-                save_update_settings(settings)
-                launch(lambda: apply_release(base, value))
+                return
+            if parent is not None:
+                reasons = live_update_blockers(parent)
+                if reasons:
+                    finish('Installationen är uppskjuten. Spara ändringar och avsluta pågående jobb först: ' + ', '.join(reasons))
+                    return
+                # Modal only during replacement: no new edits/jobs via the UI.
+                root.grab_set()
+            installing = True
+            label.config(text='Laddar ned och installerar release %s …' % value[0])
+            settings.pop('pending_release', None)
+            save_update_settings(settings)
+            launch(lambda: apply_release(base, value))
         else:
-            finish(value or 'Denna release är redan installerad.')
+            if installing and parent is not None:
+                try:
+                    with (logs_dir() / 'update.log').open('a', encoding='utf-8') as stream:
+                        stream.write(str(value) + '\n')
+                except OSError:
+                    pass
+                root.grab_release()
+                offer_installed_restart(root, parent, base, label)
+            else:
+                finish(value or 'Denna release är redan installerad.')
 
     launch(lambda: (pending, release_commit(pending)) if pending else check_release(base))
     if parent is None:

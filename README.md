@@ -51,7 +51,7 @@ Releasekontrollen använder Pythons standardbibliotek och GitHub API. Den jämf�
 
 Menyn **Uppdateringar** innehåller automatisk uppdatering, fråga först (standard), avstängt och manuell sökning.
 Uppdateraren laddar ner källarkivet för **den exakta publicerade release-taggen** från GitHub, aldrig `main`.
-Manuell uppdatering inifrån appen schemaläggs till nästa start via `start.pyw`, så att aktiv kod inte byts ut medan appen körs.
+Manuell uppdatering inifrån appen laddas ned och installeras direkt när inga jobb eller kända osparade ändringar blockerar. Därefter erbjuds en avbrytbar omstart efter tre sekunder; se avsnittet om direktinstallation nedan.
 
 Installationen använder bara Python. Den kontrollerar tagg mot `APP_VERSION`, arkivets sökvägar, storleksgränser och Python-syntax innan filer byts ut.
 Programkod, `requirements.txt` och ikoner ersätts. Inställningar, exporter och andra filer lämnas orörda.
@@ -414,3 +414,14 @@ QuickTime (`.mov`, `.qt`, även stora bokstäver) känns igen som video. Vid gal
 Efter uppdatering installerar startaren de nya saknade beroendena `pillow-heif` och `imageio-ffmpeg` via den vanliga paketkontrollen. På plattformar/Python-versioner där kompatibla hjul eller systembibliotek saknas kan installation behöva lösas med operativsystemets pakethanterare; stöd för varje kodek eller skadad/DRM-skyddad fil kan inte garanteras. FFmpeg-/codec-licenser gäller separat.
 
 Konvertering sker i temporär fil, ersätter destinationen först vid framgång och har tidsgräns på en timme per fil. Vid fel lämnas original och tidigare MP4 orörda; felutmatning rapporteras, inte en falsk lyckad videolänk. Långa/stora videor kan ta tid och diskplats. HDR/Dolby Vision-färgmatchning eller exakt metadata-/spårbevarande garanteras inte av denna webbkonvertering.
+
+
+## Installera direkt och erbjud omstart inom tre sekunder
+
+Vid manuell **Sök efter uppdateringar** laddas en hittad stabil release nu ned och installeras direkt, inte bara köas till nästa start. Automatläge installerar utan extra godkännande; schemalagt frågeläge behåller sitt godkännande. Ingen ny version betyder ingen installation eller omstart. Säkerhetskopiering, syntaxvalidering, återställning vid fel och skyddet för utvecklingskopior med `.git` behålls.
+
+Efter lyckad installation i den körande appen visas **Starta om nu** och **Senare**, med en avbrytbar tresekundersnedräkning. Senare, Escape eller X avbryter den automatiska omstarten; den installerade uppdateringen används då vid nästa vanliga start. Omstart sparar inställningar och använder väntande hjälpprocess tills gamla appens instanslås släppts – ingen andra nedladdning. En installation före appstart behöver ingen separat omstartsdialog.
+
+Pågående pipeline/bakgrundsjobb och kända osparade ändringar stoppar direktinstallation/omstart. Spara och avsluta jobbet, sök sedan igen. Installationsdialogen blockerar nya UI-åtgärder under filbytet och samtidig manuell kontroll förhindras. En ny säkerhetskontroll görs när nedräkningen löper ut. Vid fel erbjuds ingen automatisk omstart. Ladda ned/installation kan ta längre än tre sekunder; nedräkningen börjar först efter lyckad installation.
+
+Har du laddat ned FFmpeg separat: packa upp arkivet och välj `bin/ffmpeg.exe` i Video-flikens FFmpeg-sökväg och testa den där. FFprobe kan väljas separat för detaljerad videoinformation.
