@@ -446,3 +446,11 @@ Aktivitetskontrollen använder nu faktiska jobbflaggor (inklusive Video-flikens 
 ### Synlig stapel direkt i Video-fliken
 
 Den inbyggda stapeln **Aktuell** i Video-fliken startar nu animation omedelbart när Bearbeta klickas, före worker-tråd och längdavläsning. Varje ny fil återgår till rörlig stapel tills FFmpeg rapporterar mätbar procent. Vid okänd längd står den inte kvar osynlig på 0 %. Staplarna har en egen stil med ökad tjocklek; faktisk färgåtergivning beror på Tk-tema/operativsystem. Vid fel eller avbrott stoppas animationen utan falsk 100 %. Separata Filbearbetning-dialogen behålls. Startloggen i Video-fliken innehåller `Videoprogress: rörlig stapel direkt vid start` så att laddad kod kan identifieras.
+
+## Automatisk videokonvertering vid Generera galleri
+
+Du behöver inte köra Video-flikens manuella konvertering först. **Generera galleri** tar de valda/identifierade videofilerna och konverterar automatiskt varje video till MP4 med H.264, AAC om ljud finns, yuv420p och faststart. Det gäller även inkommande MP4, eftersom filändelsen inte garanterar webbläsarvänliga kodekar (en MP4 kan exempelvis innehålla HEVC). MOV/QT, AVI, MKV, WebM och övriga videoformat som appen känner igen hanteras på samma sätt, förutsatt att FFmpeg kan avkoda innehållet.
+
+Exporterad HTML och videominiatyrer använder den konverterade MP4-filen. Originalen ändras inte. Vid omexport i samma mapp väljs ett annat utfilnamn om det normala namnet skulle krocka med någon av ingångsvideorna. FFmpeg-sökvägen från Video-pluginens konfiguration prioriteras när den är tillgänglig, annars används ordinarie sökning och paketets reservbinär. Progressdialogen visar vilken video som konverteras. Vid konverteringsfel avbryts exporten med fel i stället för att länka till en video som inte har konverterats.
+
+Videoflikens manuella inställningar för andra kodekar påverkar inte webbnormaliseringen. Videor kodas om vid export; stora klipp kan därför ta tid och diskplats. H.264/AAC ger brett stöd men garanterar inte uppspelning på varje enhet eller av DRM-skyddat/skadat innehåll. HDR/Dolby Vision-matchning och bevarande av alla metadata/spår garanteras inte.

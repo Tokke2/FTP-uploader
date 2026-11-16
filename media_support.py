@@ -1,5 +1,5 @@
 # Copyright (c) 2026 Rickard Längkvist
-"""Shared HEIF registration and atomic QuickTime-to-web conversion."""
+"""Shared HEIF registration and atomic video-to-web conversion."""
 from pathlib import Path
 import os
 import subprocess
@@ -37,7 +37,7 @@ def quicktime_to_mp4(source, destination, ffmpeg=None):
     source, destination = Path(source), Path(destination)
     ffmpeg = ffmpeg or bundled_ffmpeg()
     if not ffmpeg:
-        raise RuntimeError('QuickTime kräver FFmpeg. Installera appberoendet imageio-ffmpeg eller välj FFmpeg i Video-fliken.')
+        raise RuntimeError('Videokonvertering kräver FFmpeg. Installera appberoendet imageio-ffmpeg eller välj FFmpeg i Video-fliken.')
     if source.resolve() == destination.resolve():
         raise ValueError('Originalvideon får inte skrivas över.')
     destination.parent.mkdir(parents=True, exist_ok=True)
@@ -53,8 +53,13 @@ def quicktime_to_mp4(source, destination, ffmpeg=None):
         result = subprocess.run(command, capture_output=True, text=True, errors='replace',
                                 timeout=3600, creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0) if os.name == 'nt' else 0)
         if result.returncode or temporary.stat().st_size == 0:
-            raise RuntimeError('QuickTime-konvertering misslyckades: %s' % result.stderr[-4000:])
+            raise RuntimeError('Videokonvertering misslyckades: %s' % result.stderr[-4000:])
         temporary.replace(destination)
     finally:
         temporary.unlink(missing_ok=True)
     return destination
+
+
+def video_to_web_mp4(source, destination, ffmpeg=None):
+    """Normalize any FFmpeg-decodable video, including HEVC inside MP4."""
+    return quicktime_to_mp4(source, destination, ffmpeg)

@@ -232,7 +232,7 @@ class HtmlGenerator(HtmlTemplatesMixin, BasePlugin):
 
     VIDEO_FORMATS = {
         ".mp4", ".webm", ".mov", ".qt", ".avi", ".mkv",
-        ".m4v", ".ogv", ".wmv", ".flv",
+        ".m4v", ".ogv", ".wmv", ".flv", ".mpg", ".mpeg", ".3gp", ".ts",
     }
 
     #: Cache för bildproportioner (L4b) - {sökväg: bredd/höjd eller 0.0}
@@ -372,6 +372,7 @@ class HtmlGenerator(HtmlTemplatesMixin, BasePlugin):
             prefix="pdf", subdir="pdf", log=log,
         )
         self._media_progress_callback = context.get('progress_callback')
+        self._export_ffmpeg = getattr(context.get('_video_processor'), 'ffmpeg_path', None)
         video_links = self._copy_and_rename_media(
             video_sources, output_path, output_format,
             prefix="video", subdir="video", log=log,
@@ -872,19 +873,24 @@ class HtmlGenerator(HtmlTemplatesMixin, BasePlugin):
             target_dir = output_path
             rel_prefix = ""
 
+        source_paths = {Path(source).resolve() for source in sources}
         for i, src in enumerate(sources, 1):
             ext = src.suffix.lower() or ""
-            is_quicktime = prefix == 'video' and ext in ('.mov', '.qt')
-            new_name = prefix + str(i) + ('.mp4' if is_quicktime else ext)
+            convert_video = prefix == 'video'
+            new_name = prefix + str(i) + ('.mp4' if convert_video else ext)
             dst = target_dir / new_name
-            if is_quicktime:
-                from media_support import quicktime_to_mp4
+            if convert_video:
+                # Reopening an export must never replace one of its input videos.
+                while dst.resolve() in source_paths:
+                    dst = dst.with_name(dst.stem + '_web.mp4')
+                new_name = dst.name
+                from media_support import video_to_web_mp4
                 if log:
-                    log('  QuickTime → MP4: %s' % src.name)
+                    log('  Video → webb-MP4 (H.264/AAC): %s' % src.name)
                 progress_callback = getattr(self, '_media_progress_callback', None)
                 if callable(progress_callback):
-                    progress_callback(None, 'Konverterar QuickTime %d/%d – %s' % (i, len(sources), src.name))
-                quicktime_to_mp4(src, dst, self._find_ffmpeg())
+                    progress_callback(None, 'Konverterar video %d/%d – %s' % (i, len(sources), src.name))
+                video_to_web_mp4(src, dst, self._find_ffmpeg())
             else:
                 self._safe_copy(src, dst)
             links.append({
@@ -903,6 +909,9 @@ class HtmlGenerator(HtmlTemplatesMixin, BasePlugin):
 
     def _find_ffmpeg(self) -> str:
         """Hitta ffmpeg.exe (PATH, vanliga mappar, imageio-ffmpeg)."""
+        selected = getattr(self, '_export_ffmpeg', None)
+        if selected and Path(selected).is_file():
+            return str(selected)
         cached = getattr(self, "_ffmpeg_exe", None)
         if cached is not None:
             return cached

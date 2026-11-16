@@ -91,3 +91,33 @@ class MediaSupportTests(unittest.TestCase):
             convert.assert_called_once()
             self.assertEqual(result[0]['relative_path'], 'video/video1.mp4')
             self.assertEqual(result[0]['original_name'], 'clip.MOV')
+
+    def test_gallery_converts_every_video_including_mp4_not_just_quicktime(self):
+        tree = ast.parse((ROOT / 'plugins/html_generator.py').read_text())
+        method = next(node for node in ast.walk(tree) if isinstance(node, ast.FunctionDef) and node.name == '_copy_and_rename_media')
+        namespace = {'Path': Path}
+        exec(compile(ast.fix_missing_locations(ast.Module(body=[method], type_ignores=[])), '<media-export>', 'exec'), namespace)
+        from types import SimpleNamespace
+        owner = SimpleNamespace(_find_ffmpeg=lambda: 'ffmpeg', _safe_copy=lambda *args: self.fail('Videos must be normalized'))
+        sources = [Path('clip' + extension) for extension in ('.mov', '.qt', '.mp4', '.avi', '.mkv', '.webm')]
+        with tempfile.TemporaryDirectory() as folder, patch('media_support.video_to_web_mp4') as convert:
+            result = namespace['_copy_and_rename_media'](owner, sources, Path(folder), 'standard', 'video', 'video')
+            self.assertEqual(convert.call_count, len(sources))
+            self.assertTrue(all(item['relative_path'].endswith('.mp4') for item in result))
+
+    def test_gallery_reexport_does_not_overwrite_any_source_video(self):
+        tree = ast.parse((ROOT / 'plugins/html_generator.py').read_text())
+        method = next(node for node in ast.walk(tree) if isinstance(node, ast.FunctionDef) and node.name == '_copy_and_rename_media')
+        namespace = {'Path': Path}
+        exec(compile(ast.fix_missing_locations(ast.Module(body=[method], type_ignores=[])), '<media-export>', 'exec'), namespace)
+        from types import SimpleNamespace
+        owner = SimpleNamespace(_find_ffmpeg=lambda: 'ffmpeg')
+        with tempfile.TemporaryDirectory() as folder, patch('media_support.video_to_web_mp4') as convert:
+            folder = Path(folder)
+            sources = [folder / 'video1.mp4', folder / 'video1_web.mp4']
+            sources[0].write_bytes(b'first original')
+            sources[1].write_bytes(b'second original')
+            namespace['_copy_and_rename_media'](owner, sources, folder, 'flat', 'video', 'video')
+            self.assertEqual(convert.call_args_list[0].args[1].name, 'video1_web_web.mp4')
+            self.assertEqual(sources[0].read_bytes(), b'first original')
+            self.assertEqual(sources[1].read_bytes(), b'second original')
