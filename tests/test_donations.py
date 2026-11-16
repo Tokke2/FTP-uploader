@@ -2,6 +2,8 @@ from pathlib import Path
 import unittest
 from donations import SWISH_NUMBER, SWISH_PAYEE, SWISH_PAYLOAD, QR_FILE
 from auto_update import managed_file
+from unittest.mock import patch
+from donations import PAYMENT_LINKS, open_payment
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -18,9 +20,9 @@ class DonationTests(unittest.TestCase):
         self.assertEqual(QR_FILE.read_bytes()[:8], b'\x89PNG\r\n\x1a\n')
         self.assertTrue(managed_file('icon/swish-donation.png'))
 
-    def test_only_swish_and_no_external_qr_or_payment_service(self):
+    def test_no_intermediary_page_or_external_qr_service(self):
         text = (ROOT / 'donations.py').read_text()
-        for forbidden in ('paypal', 'ko-fi', 'qrserver', 'webbrowser', 'urllib', 'load_json', 'update_settings'):
+        for forbidden in ('recept/stod', 'qrserver', 'urllib', 'load_json', 'update_settings'):
             self.assertNotIn(forbidden, text.lower())
         self.assertNotIn('tk.Entry(', text)
 
@@ -38,3 +40,19 @@ class DonationTests(unittest.TestCase):
         result = zxingcpp.read_barcode(Image.open(QR_FILE))
         self.assertIsNotNone(result)
         self.assertEqual(result.text, SWISH_PAYLOAD)
+
+
+    def test_payment_buttons_open_exact_profiles_directly(self):
+        for service, url in (('paypal', 'https://paypal.me/Rickard3dPrint'),
+                             ('kofi', 'https://ko-fi.com/tokke2')):
+            with patch('donations.webbrowser.open', return_value=True) as browser:
+                self.assertTrue(open_payment(service))
+                browser.assert_called_once_with(url)
+        with self.assertRaises(TypeError):
+            PAYMENT_LINKS['paypal'] = 'https://example.invalid'
+
+    def test_unknown_payment_target_cannot_be_opened(self):
+        with patch('donations.webbrowser.open') as browser:
+            with self.assertRaises(KeyError):
+                open_payment('https://example.invalid')
+            browser.assert_not_called()

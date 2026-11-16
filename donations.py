@@ -1,12 +1,24 @@
 # Copyright (c) 2026 Rickard Längkvist
-"""Swish-only voluntary support, offline QR and no editable recipient setting."""
+"""Offline Swish QR and direct payment buttons, no intermediary support page."""
 from pathlib import Path
+from types import MappingProxyType
+import webbrowser
 
 SWISH_NUMBER = '0721817177'
 SWISH_PAYEE = '46721817177'
 # Swish C-format, no fixed amount/message; those remain editable (mask 6).
 SWISH_PAYLOAD = 'C' + SWISH_PAYEE + ';;;6'
 QR_FILE = Path(__file__).resolve().parent / 'icon' / 'swish-donation.png'
+
+PAYMENT_LINKS = MappingProxyType({
+    'paypal': 'https://paypal.me/Rickard3dPrint',
+    'kofi': 'https://ko-fi.com/tokke2',
+})
+
+
+def open_payment(service):
+    """Only predefined recipient profiles; no URL from settings or input."""
+    return webbrowser.open(PAYMENT_LINKS[service])
 
 
 def show_donations(parent):
@@ -22,7 +34,7 @@ def show_donations(parent):
             pass
     window = tk.Toplevel(parent)
     parent._donation_window = window
-    window.title('Stöd FTP Uploader – Swish')
+    window.title('Stöd FTP Uploader')
     window.configure(bg='#090f26')
     window.geometry('520x650')
     window.minsize(380, 400)
@@ -59,6 +71,27 @@ def show_donations(parent):
     label('Mottagarnummer: ' + SWISH_NUMBER, 12, '#ffffff', True)
     label('Kontrollera mottagarnamnet och beloppet i Swish innan du godkänner. '
           'Ingen betalning sker i appen och inga betaluppgifter samlas in.')
+    label('Eller stöd direkt via', 11, '#c885ff', True)
+
+    def payment(service):
+        from tkinter import messagebox
+        try:
+            if not open_payment(service):
+                messagebox.showerror('Stöd FTP Uploader', 'Kunde inte öppna standardwebbläsaren.', parent=window)
+        except Exception as exc:
+            from event_log import exception
+            exception('donation.browser.failed', type(exc), exc, exc.__traceback__)
+            messagebox.showerror('Stöd FTP Uploader', 'Kunde inte öppna betaltjänsten.', parent=window)
+
+    for service, title, color in (
+            ('paypal', 'PayPal  →  Rickard3dPrint', '#176baf'),
+            ('kofi', 'Ko-fi  →  tokke2', '#a83068')):
+        tk.Button(body, text=title, command=lambda key=service: payment(key),
+                  bg=color, fg='white', activebackground='#314365', activeforeground='white',
+                  relief='flat', font=('TkDefaultFont', 12, 'bold'), pady=10,
+                  cursor='hand2').pack(fill='x', pady=5)
+    label('Knapparna öppnar betalprofilen direkt i webbläsaren.\n'
+          'Välj belopp och godkänn där – ingen egen stödsida.', 10)
     label('Gratis för privat och kommersiell användning.\n'
           'Donationer är helt frivilliga – tack för ditt stöd!', 10, '#26dce0')
     label('Copyright © 2026 Rickard Längkvist', 10)
