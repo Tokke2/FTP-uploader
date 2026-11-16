@@ -437,3 +437,7 @@ Worker-trådar lägger bara händelser i en trådsäker, begränsad kö; dialoge
 FFmpeg-körningen i Video-fliken läser nu stdout **och stderr samtidigt**. Tidigare kunde en full stderr-pipe blockera FFmpeg samtidigt som appen väntade på progressrader. Progressläsningen ligger nu i separata lästrådar och övervakningen väntar högst 200 ms åt gången, så tyst FFmpeg inte blockerar avbrotts-/timeoutkontrollen.
 
 Status visar ett livstecken varje sekund och anger när inga nya statusdata har kommit på minst 30 sekunder. Det är en varning om brist på data, inte bevis för att processen har låst sig. Saknas ffprobe provas längdavläsning med FFmpeg. Om längden fortfarande är okänd visas ingen påhittad procent (tidigare antogs 60 sekunder); slutlig 100 % sätts först efter lyckad exitkod. Felutmatningens sista del följer med i felrapporten. Avbryt-signalen hanteras i bakgrunden utan att sova i Tk-tråden, och processen termineras/killas samt städas efter behov.
+
+### Uppdatering blockerad trots avslutad bearbetning
+
+Aktivitetskontrollen använder nu faktiska jobbflaggor (inklusive Video-flikens `processing`), levande extern FFmpeg-process och uttryckligt identifierade arbetstrådar. Permanenta kö-/status-/aktiveringstrådar blockerar inte längre bara för att deras namn innehåller `process` eller `upload`. Samma kontroll används för manuell direktinstallation och schemalagd omstart. Faktiskt pågående arbete och osparade ändringar är fortfarande skyddade.

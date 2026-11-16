@@ -70,11 +70,9 @@ class ReleaseScheduler:
         if enabled and needs_restart and not self.busy:
             # Any open dialog/editor or active background job postpones restart.
             dialogs = [w for w in self.app.winfo_children() if w.winfo_toplevel() is w]
-            workers = [t for t in threading.enumerate()
-                       if t is not threading.main_thread() and t.is_alive()
-                       and any(word in t.name.lower() for word in ('pipeline', 'upload', 'process', 'export', 'generate'))]
-            plugin_busy = any(getattr(plugin, 'is_generating', False)
-                              for plugin in self.app.plugins.values())
+            from restart_safety import active_job_reasons
+            workers = active_job_reasons(self.app)
+            plugin_busy = False  # Job flags/processes are included above.
             from restart_safety import unsaved_reasons
             unsaved = unsaved_reasons(self.app)
             if unsaved and unsaved != getattr(self, '_last_unsaved', None):

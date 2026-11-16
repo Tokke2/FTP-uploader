@@ -313,17 +313,8 @@ def _install_release(base, release):
 
 
 def live_update_blockers(app):
-    from restart_safety import unsaved_reasons
-    reasons = unsaved_reasons(app)
-    if getattr(app, '_pipeline_busy', 0):
-        reasons.append('pipeline körs')
-    for name, plugin in getattr(app, 'plugins', {}).items():
-        if any(getattr(plugin, attr, False) for attr in ('is_generating', 'is_processing', 'is_uploading')):
-            reasons.append(str(name) + ' arbetar')
-    workers = [thread.name for thread in threading.enumerate()
-               if thread is not threading.main_thread() and thread.is_alive()
-               and any(word in thread.name.lower() for word in ('pipeline', 'upload', 'process', 'export', 'generate'))]
-    return reasons + workers
+    from restart_safety import unsaved_reasons, active_job_reasons
+    return unsaved_reasons(app) + active_job_reasons(app)
 
 
 class RestartCountdown:

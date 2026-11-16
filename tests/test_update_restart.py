@@ -95,3 +95,25 @@ class UpdateRestartTests(unittest.TestCase):
             offer.assert_called_once()
             root.grab_set.assert_called_once()
             root.grab_release.assert_called_once()
+
+    def test_permanent_processing_services_do_not_block_idle_update(self):
+        app = self.app()
+        for name in ('FFT-processor aktivering', 'Thread-3 (_process_queue)', 'FFmpeg-status', 'UploadStatusPoller'):
+            thread = SimpleNamespace(name=name, is_alive=lambda: True)
+            with patch('threading.enumerate', return_value=[thread]):
+                self.assertEqual(live_update_blockers(app), [], name)
+
+    def test_video_processing_flag_and_real_ffmpeg_process_still_block(self):
+        app = self.app()
+        app.plugins = {'video': SimpleNamespace(processing=True)}
+        self.assertTrue(live_update_blockers(app))
+        app.plugins = {'video': SimpleNamespace(processing=False, current_process=SimpleNamespace(poll=lambda: None))}
+        self.assertTrue(live_update_blockers(app))
+        app.plugins['video'].current_process.poll = lambda: 0
+        self.assertEqual(live_update_blockers(app), [])
+
+    def test_known_work_thread_still_blocks_until_finished(self):
+        app = self.app()
+        for name in ('PipelineThread', 'GenerateThread', 'MediaProcessingThread', 'Thread-2 (_process_all_worker)'):
+            with patch('threading.enumerate', return_value=[SimpleNamespace(name=name, is_alive=lambda: True)]):
+                self.assertIn(name, live_update_blockers(app))
