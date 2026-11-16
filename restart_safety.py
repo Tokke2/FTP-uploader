@@ -58,3 +58,25 @@ def active_job_reasons(app):
                 or thread.name.endswith('(_generate_thread)')):
             reasons.append(thread.name)
     return list(dict.fromkeys(reasons))
+
+
+def request_job_stop(app):
+    """Request cooperative cancellation; never fake idle flags or discard edits."""
+    import threading
+    event = getattr(app, '_update_stop_event', None)
+    if event is None:
+        event = threading.Event()
+        app._update_stop_event = event
+    event.set()
+    context = getattr(app, 'context', {})
+    previous = context.get('cancel_check')
+    if not getattr(previous, '_update_stop_check', False):
+        def cancelled():
+            return event.is_set() or (bool(previous()) if callable(previous) else False)
+        cancelled._update_stop_check = True
+        context['cancel_check'] = cancelled
+    for plugin in getattr(app, 'plugins', {}).values():
+        if hasattr(plugin, 'cancel_requested'):
+            plugin.cancel_requested = True
+        if hasattr(plugin, 'paused'):
+            plugin.paused = False

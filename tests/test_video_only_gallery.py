@@ -75,6 +75,13 @@ class VideoOnlyGalleryTests(unittest.TestCase):
             self.assertTrue((output / 'index.html').is_file())
             self.assertTrue((output / 'video/video1.mp4').is_file())
             self.assertIn('video/video1.mp4', (output / 'index.html').read_text())
+            thumbnail = output / 'video/video1.jpg'
+            self.assertTrue(thumbnail.is_file())
+            with Image.open(thumbnail) as frame:
+                red, green, blue = frame.convert('RGB').getpixel((10, 10))
+                self.assertGreater(red, green + 100)
+                self.assertGreater(red, blue + 100)
+            self.assertIn('video/video1.jpg', (output / 'index.html').read_text())
             self.assertTrue(result['link_report']['ok'])
             self.assertEqual(video.read_bytes(), original)
 

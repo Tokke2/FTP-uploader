@@ -425,6 +425,11 @@ def check_before_start(base, parent=None, manual=False):
         root.after(100, poll)
 
     def finish(message):
+        if parent is not None:
+            from restart_safety import active_job_reasons
+            stop_event = getattr(parent, '_update_stop_event', None)
+            if stop_event is not None and not active_job_reasons(parent):
+                stop_event.clear()
         try:
             with (logs_dir() / 'update.log').open('a', encoding='utf-8') as stream:
                 from datetime import datetime
@@ -453,12 +458,20 @@ def check_before_start(base, parent=None, manual=False):
                 finish('Uppdateringen avböjdes.')
                 return
             if parent is not None:
-                reasons = live_update_blockers(parent)
-                if reasons:
-                    finish('Installationen är uppskjuten. Spara ändringar och avsluta pågående jobb först: ' + ', '.join(reasons))
-                    return
-                # Modal only during replacement: no new edits/jobs via the UI.
+                from restart_safety import request_job_stop, active_job_reasons, unsaved_reasons
+                # Hold the UI against new jobs while current workers unwind.
                 root.grab_set()
+                request_job_stop(parent)
+                jobs = active_job_reasons(parent)
+                if jobs:
+                    label.config(text='Stoppar pågående jobb före uppdatering …\n' + ', '.join(jobs))
+                    root.after(200, lambda: (results.put(('ok', value)), poll()))
+                    return
+                reasons = unsaved_reasons(parent)
+                if reasons:
+                    root.grab_release()
+                    finish('Jobben har stoppats. Spara ändringar före uppdatering: ' + ', '.join(reasons))
+                    return
             installing = True
             label.config(text='Laddar ned och installerar release %s …' % value[0])
             settings.pop('pending_release', None)
@@ -472,6 +485,9 @@ def check_before_start(base, parent=None, manual=False):
                 except OSError:
                     pass
                 root.grab_release()
+                stop_event = getattr(parent, '_update_stop_event', None)
+                if stop_event is not None:
+                    stop_event.clear()
                 offer_installed_restart(root, parent, base, label)
             else:
                 finish(value or 'Denna release är redan installerad.')

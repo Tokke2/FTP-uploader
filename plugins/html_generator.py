@@ -374,6 +374,7 @@ class HtmlGenerator(HtmlTemplatesMixin, BasePlugin):
             prefix="pdf", subdir="pdf", log=log,
         )
         self._media_progress_callback = context.get('progress_callback')
+        self._media_cancel_check = lambda: bool(context.get('cancel_check') and context['cancel_check']())
         self._export_ffmpeg = getattr(context.get('_video_processor'), 'ffmpeg_path', None)
         video_links = self._copy_and_rename_media(
             video_sources, output_path, output_format,
@@ -893,7 +894,11 @@ class HtmlGenerator(HtmlTemplatesMixin, BasePlugin):
                 progress_callback = getattr(self, '_media_progress_callback', None)
                 if callable(progress_callback):
                     progress_callback(None, 'Konverterar video %d/%d – %s' % (i, len(sources), src.name))
-                video_to_web_mp4(src, dst, self._find_ffmpeg())
+                cancel = getattr(self, '_media_cancel_check', None)
+                if cancel is None:
+                    video_to_web_mp4(src, dst, self._find_ffmpeg())
+                else:
+                    video_to_web_mp4(src, dst, self._find_ffmpeg(), cancelled=cancel)
             else:
                 self._safe_copy(src, dst)
             links.append({
@@ -959,7 +964,7 @@ class HtmlGenerator(HtmlTemplatesMixin, BasePlugin):
             if not src or not src.exists():
                 return False
             dst.parent.mkdir(parents=True, exist_ok=True)
-            if dst.exists() and dst.stat().st_size > 200:
+            if dst.exists() and dst.stat().st_size > 200 and dst.stat().st_mtime_ns >= src.stat().st_mtime_ns:
                 return True
         except Exception:
             return False
@@ -1027,6 +1032,11 @@ class HtmlGenerator(HtmlTemplatesMixin, BasePlugin):
             copied = output_path / rel.replace("/", os.sep)
             dst = copied.with_suffix(".jpg")
             src = copied if copied.exists() else Path(vid.get("original_path") or "")
+            cancel = getattr(self, '_media_cancel_check', None)
+            if cancel and cancel():
+                raise RuntimeError('Skapande av videominiatyrer avbrutet')
+            # Always refresh from this export's actual video, never stale JPEGs.
+            dst.unlink(missing_ok=True)
             if self._extract_video_thumb(src, dst):
                 try:
                     vid["thumb_rel"] = str(

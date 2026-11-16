@@ -852,6 +852,10 @@ class App(tk.Tk):
                 # plugin was excluded from the saved pipeline selection.
                 steps.insert(0, ('ui_settings', settings_plugin))
             for step_index, (name, plugin) in enumerate(steps, 1):
+                stop_event = getattr(self, '_update_stop_event', None)
+                cancel_check = self.context.get('cancel_check')
+                if (stop_event is not None and stop_event.is_set()) or (callable(cancel_check) and cancel_check()):
+                    raise RuntimeError('Jobbet stoppades före uppdatering eller av användaren.')
                 if progress is not None:
                     progress.stage(progress_job, 'Steg %d/%d – %s' % (step_index, len(steps), plugin.PLUGIN_NAME))
                 if not hasattr(plugin, "execute"):
