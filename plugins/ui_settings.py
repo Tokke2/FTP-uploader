@@ -811,6 +811,7 @@ class SettingsUI(GeneratedGalleryMixin, BasePlugin):
             row=3, column=0, sticky=tk.W, pady=8
         )
 
+        self.layout_options = {}
         self.cols_var = tk.IntVar(value=6)
         cols_row = tk.Frame(frame, bg=bg)
         cols_row.grid(row=3, column=1, sticky=tk.W, padx=10, pady=8)
@@ -824,6 +825,10 @@ class SettingsUI(GeneratedGalleryMixin, BasePlugin):
             pack={"side": tk.LEFT, "padx": 5},
         )
 
+        from layout_designer import open_designer
+        ttk.Button(frame, text='Visuell layout och liveförhandsvisning…',
+                   command=lambda: open_designer(self.app, self)).grid(
+                       row=4, column=0, columnspan=3, sticky='ew', padx=10, pady=8)
         frame.columnconfigure(1, weight=1)
 
     def create_image_section(self) -> None:
@@ -1205,6 +1210,7 @@ class SettingsUI(GeneratedGalleryMixin, BasePlugin):
             "description":    self.desc_var.get(),
             "theme":          self.theme_var.get(),
             "columns":        self.cols_var.get(),
+            "layout":         dict(getattr(self, 'layout_options', {})),
             "thumbnail_size": self.thumb_size_var.get(),
             "fullsize_max":   self.fullsize_var.get(),
             "quality":        self.quality_var.get(),
@@ -1268,6 +1274,8 @@ class SettingsUI(GeneratedGalleryMixin, BasePlugin):
         self.desc_var.set(s.get("description",     ""))
         self.theme_var.set(theme)
         self.cols_var.set(s.get("columns",          6))
+        from layout_designer import options as layout_options
+        self.layout_options = layout_options(s.get('layout'))
         self.thumb_size_var.set(
             s.get("thumbnail_size", "300x300")
         )
@@ -1310,6 +1318,8 @@ class SettingsUI(GeneratedGalleryMixin, BasePlugin):
         self.desc_var.set("")
         self.theme_var.set("system")
         self.cols_var.set(4)
+        from layout_designer import options as layout_options
+        self.layout_options = layout_options()
         self.thumb_size_var.set("300x300")
         self.fullsize_var.set("1920x1080")
         self.quality_var.set(85)
@@ -1592,6 +1602,7 @@ class SettingsUI(GeneratedGalleryMixin, BasePlugin):
             "fullsize_max":   fullsize_max,
             "jpeg_quality":   self.quality_var.get(),
             "columns":        self.cols_var.get(),
+            "layout":         dict(getattr(self, 'layout_options', {})),
             "preserve_exif":  self.preserve_exif_var.get(),
             "auto_rotate":    self.auto_rotate_var.get(),
         }

@@ -478,3 +478,17 @@ Uppdatering inifrån den öppna appen återanvänder nu appens befintliga single
 - **Tydligare status:** Om-dialogen och startloggen visar installerad commit (12 tecken) och installationsdatum från `.release-state.json`. Äldre/manuella installationer anges som okända. Jobbsteg, videoförberedelse, väntande stopp och publicering visas i befintlig status/progress. Datum gäller installationen, inte releasepubliceringen.
 
 Windows-fönster, filås och verklig uppdatering från en äldre installerad kopia behöver fortfarande verifieras på Windows; automatiska tester här ersätter inte den kontrollen.
+
+## Arbetsyta, navigation och visuell gallerilayout
+
+Den nya **Start**-vyn samlar källmapp, vald exportmapp, senaste genererade galleri under aktuell körning, aktiva jobb och installerad releaseinformation. Snabbknappar använder appens befintliga funktioner för mappval, generering, förhandsvisning och output. Verktyg som saknas/inaktiverats rapporteras i stället för att ge ett tyst knapptryck.
+
+Navigationen **Start → Projekt → Media → Utseende → Publicera** länkar till befintliga inställningar, bildgalleri, layoutredigerare och kontroller. **Avancerat** visar den gamla kompletta flikraden, inklusive Video, CSS, logg och övriga verktyg. Inga verktyg eller menyalternativ är borttagna. Det här är en ny navigationsyta ovanpå befintliga verktyg, inte en omskrivning av deras interna kontroller. Arbetsytan kan inaktiveras som plugin om den klassiska navigationen föredras.
+
+Startsidan har en dragbar avdelare mellan åtgärder och status. Fördelningen sparas per användare i `workspace.json`, separat för liggande och stående läge. Vid mindre än 820 pixlars innehållsbredd staplas panelerna; navigationen radbryts och åtgärds-/statuspanelerna kan rullas. Sparad huvudfönsterstorlek begränsas till skärmen. Tk/operativsystemets skalning behålls. Gemensamma Studio-stilar ger den nya arbetsytan och layoutdialogens knappar konsekvent avstånd och cyan/violett/rosa-konceptet; äldre verktygs egna temastilar ersätts inte globalt.
+
+**Utseende**, eller knappen **Visuell layout och liveförhandsvisning** under Inställningar, öppnar en redigerare för kolumner, mellanrum, hörnradie, textstorlek, bildformat och cover/contain-anpassning. Dator/surfplatta/mobil ger en **schematisk** direktförhandsvisning med exempelrutor, inte en inbäddad webbläsare eller exakt återgivning av egna bilder. ”Använd i projektet” uppdaterar inställningarna; ordinarie Spara/dirty-kontroll gäller. Valen följer med till HTML/CSS och den portabla gallerimanifestfilen. Avbryt förändrar inte inställningarna.
+
+Videominiatyrer provas nu vid upp till fyra positioner i klippet (8, 25, 50 och 75 procent när längden kan läsas). Bilderna poängsätts efter kontrast/detaljer och straffas för stora svarta/vita ytor. Detta minskar risken för svarta inledningsrutor men garanterar inte ett estetiskt bästa motiv. Vid okänd längd provas början/1 sekund; befintlig extraktion är reservväg. Kandidatbilder städas bort och avbrott kontrolleras mellan/under extraktionerna. Originalvideon ändras aldrig.
+
+Automatiska tester omfattar layoutvalidering, kontrast, sparad arbetsytedata, skärmgränser, faktisk CSS/manifest-export och en riktig video med svart intro. Tk saknas i testmiljön här: fönsterritning, dragavdelare, DPI och operativsystemens teman är **inte visuellt verifierade** och behöver kontrolleras i den installerade appen.

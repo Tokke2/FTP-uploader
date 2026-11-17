@@ -290,7 +290,8 @@ class HtmlGenerator(HtmlTemplatesMixin, BasePlugin):
         images_path_s = gallery.get("images_path", "")
         output_path_s = gallery.get("output_path", "")
 
-        custom_css    = context.get("custom_css", "")
+        from layout_designer import css as layout_css
+        custom_css = layout_css(gallery.get('layout')) + '\n' + context.get("custom_css", "")
         custom_head   = context.get("custom_html_header", "")
         custom_footer = context.get("custom_html_footer", "")
 
@@ -1060,7 +1061,8 @@ class HtmlGenerator(HtmlTemplatesMixin, BasePlugin):
                 raise RuntimeError('Skapande av videominiatyrer avbrutet')
             # Always refresh from this export's actual video, never stale JPEGs.
             dst.unlink(missing_ok=True)
-            if self._extract_video_thumb(src, dst):
+            from video_thumbnails import choose_video_thumbnail
+            if choose_video_thumbnail(src, dst, self._find_ffmpeg(), cancel) or self._extract_video_thumb(src, dst):
                 try:
                     vid["thumb_rel"] = str(
                         dst.relative_to(output_path)

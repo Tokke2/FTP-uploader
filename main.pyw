@@ -413,7 +413,9 @@ class App(tk.Tk):
         self.title(APP_NAME)
         self._apply_window_icon()
         self.geometry(self._adaptive_geometry())
-        self.minsize(MIN_WIDTH, MIN_HEIGHT)
+        from workspace_design import window_size
+        screen_width, screen_height = self.winfo_screenwidth(), self.winfo_screenheight()
+        self.minsize(min(MIN_WIDTH, max(280, screen_width - 40)), min(MIN_HEIGHT, max(240, screen_height - 80)))
 
         # ── 7. Hjälpklasser ───────────────────────────────────
         self.theme_engine      = ThemeEngine(self)
@@ -425,7 +427,12 @@ class App(tk.Tk):
         )
 
         # ── 8. Återställ position ─────────────────────────────
-        self.geometry(self._window_state_mgr.get_geometry())
+        # Clamp legacy saved sizes to this screen (including high-DPI laptops).
+        saved_geometry = self._window_state_mgr.get_geometry()
+        import re as _geometry_re
+        match = _geometry_re.match(r'(\d+)x(\d+)', saved_geometry)
+        max_width, max_height = window_size(screen_width, screen_height)
+        self.geometry('%dx%d' % (min(int(match[1]), max_width), min(int(match[2]), max_height)) if match else '%dx%d' % (max_width, max_height))
         log_startup("8. Position", "geometry=%s" % self.geometry())
 
         # ── 9. Bygg bas-UI ────────────────────────────────────
