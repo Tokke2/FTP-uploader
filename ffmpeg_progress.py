@@ -3,7 +3,7 @@
 from collections import deque
 import queue
 import re
-import subprocess
+import quiet_process as subprocess
 import threading
 import time
 

@@ -93,7 +93,7 @@
 # ============================================================
 
 import json
-import subprocess
+import quiet_process as subprocess
 import sys
 import time
 import traceback

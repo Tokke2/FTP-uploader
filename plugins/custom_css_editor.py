@@ -91,7 +91,7 @@ import json
 import os
 import re
 import sys
-import subprocess
+import quiet_process as subprocess
 import tempfile
 from pathlib import Path
 from datetime import datetime

@@ -4,7 +4,7 @@ import hashlib
 import json
 import os
 from pathlib import Path
-import subprocess
+import quiet_process as subprocess
 import sys
 
 from app_paths import config_dir

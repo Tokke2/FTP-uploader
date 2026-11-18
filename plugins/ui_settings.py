@@ -133,7 +133,7 @@
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
 from pathlib import Path
-import subprocess
+import quiet_process as subprocess
 import sys
 import shutil
 import re

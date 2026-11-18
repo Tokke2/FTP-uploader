@@ -4,7 +4,7 @@ import json
 import os
 from pathlib import Path
 import queue
-import subprocess
+import quiet_process as subprocess
 import sys
 import threading
 import time

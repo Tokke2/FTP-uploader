@@ -89,7 +89,7 @@ import app_paths
 import tkinter as tk
 from tkinter import ttk, messagebox, filedialog
 from pathlib import Path
-import subprocess
+import quiet_process as subprocess
 import json
 import threading
 import shutil

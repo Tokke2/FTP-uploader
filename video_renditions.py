@@ -4,7 +4,7 @@ import hashlib
 import json
 import os
 from pathlib import Path
-import subprocess
+import quiet_process as subprocess
 import tempfile
 from ffmpeg_progress import monitor
 from resource_profiles import ffmpeg_args

@@ -524,7 +524,7 @@ def _detect_system_theme() -> str:
     # 3. macOS
     if sys.platform == "darwin":
         try:
-            import subprocess
+            import quiet_process as subprocess
             result = subprocess.run(
                 ["defaults", "read", "-g", "AppleInterfaceStyle"],
                 capture_output=True, text=True, timeout=2
@@ -536,7 +536,7 @@ def _detect_system_theme() -> str:
     # 4. Linux GTK (gsettings)
     if sys.platform == "linux":
         try:
-            import subprocess
+            import quiet_process as subprocess
             result = subprocess.run(
                 ["gsettings", "get",
                  "org.gnome.desktop.interface", "color-scheme"],

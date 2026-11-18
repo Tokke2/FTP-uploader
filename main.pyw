@@ -359,6 +359,7 @@ class App(tk.Tk):
         log_startup("Programkopia", "version=%s mapp=%s Python=%s" % (APP_VERSION, BASE_DIR, sys.executable))
         from auto_update import installation_info
         log_startup('Installerad release', installation_info(BASE_DIR))
+        log_startup('Konsolfri körning', 'Gemensam processpolicy: inga nya konsolfönster vid skanning, FFmpeg eller Python-kontroller. Vanlig start är alltid minimerad.')
 
         # ── 1. Dölj OMEDELBART ────────────────────────────────
         self.withdraw()
@@ -1946,10 +1947,10 @@ class App(tk.Tk):
             if sys.platform == "win32":
                 os.startfile(log_dir)
             elif sys.platform == "darwin":
-                import subprocess
+                import quiet_process as subprocess
                 subprocess.Popen(["open", str(log_dir)])
             else:
-                import subprocess
+                import quiet_process as subprocess
                 subprocess.Popen(["xdg-open", str(log_dir)])
         except Exception as exc:
             messagebox.showerror(

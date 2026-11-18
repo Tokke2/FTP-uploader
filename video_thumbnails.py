@@ -2,7 +2,7 @@
 """Choose a real, nonblank video frame with bounded candidate extraction."""
 from pathlib import Path
 import os
-import subprocess
+import quiet_process as subprocess
 import tempfile
 
 

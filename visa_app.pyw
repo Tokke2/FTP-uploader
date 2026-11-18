@@ -7,7 +7,7 @@ Place beside main.pyw. Uses only Python's standard library; never installs packa
 from datetime import datetime
 from pathlib import Path
 import socket
-import subprocess
+import quiet_process as subprocess
 import sys
 
 BASE = Path(__file__).resolve().parent

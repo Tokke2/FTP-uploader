@@ -5,7 +5,7 @@ import os
 from pathlib import Path
 import re
 import shutil
-import subprocess
+import quiet_process as subprocess
 import sys
 
 PROBE = ('import sys,json; import tkinter; '

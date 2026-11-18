@@ -18,7 +18,7 @@
 
 import sys
 import os
-import subprocess
+import quiet_process as subprocess
 import threading
 from datetime import datetime
 from pathlib import Path

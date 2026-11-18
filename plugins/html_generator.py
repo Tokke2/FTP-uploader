@@ -180,7 +180,7 @@ import json
 import shutil
 import re
 import tempfile
-import subprocess
+import quiet_process as subprocess
 from pathlib import Path
 from datetime import datetime
 

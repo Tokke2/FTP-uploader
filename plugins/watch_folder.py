@@ -105,7 +105,7 @@ import json
 import os
 import sys
 import tempfile
-import subprocess
+import quiet_process as subprocess
 import platform
 from datetime import datetime
 

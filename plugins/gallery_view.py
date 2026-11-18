@@ -112,7 +112,7 @@ import json
 import os
 import shutil
 import time
-import subprocess
+import quiet_process as subprocess
 import sys
 import random
 import tempfile

@@ -139,7 +139,7 @@ from pathlib import Path
 from datetime import datetime
 import threading
 import json
-import subprocess
+import quiet_process as subprocess
 import sys
 import shutil
 import traceback

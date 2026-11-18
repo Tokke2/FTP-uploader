@@ -66,7 +66,7 @@
 
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
-import subprocess
+import quiet_process as subprocess
 import sys
 import json
 from pathlib import Path

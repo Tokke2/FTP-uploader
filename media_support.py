@@ -2,7 +2,7 @@
 """Shared HEIF registration and atomic video-to-web conversion."""
 from pathlib import Path
 import os
-import subprocess
+import quiet_process as subprocess
 import tempfile
 import threading
 
