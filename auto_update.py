@@ -294,7 +294,8 @@ def _install_release(base, release):
                 target = base / relative
                 if not target.resolve().is_relative_to(base):
                     raise ValueError('Installationssökväg pekar utanför appmappen.')
-            backup = base.parent / (base.name + '.release-backup-' + datetime.now().strftime('%Y%m%d-%H%M%S-%f'))
+            from backup_storage import new_backup
+            backup = new_backup('releases', 'release-'+tag, base)
             backup.mkdir()
             for relative in files:
                 target = base / relative

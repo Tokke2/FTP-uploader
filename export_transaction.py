@@ -3,12 +3,15 @@
 from pathlib import Path
 import shutil
 import tempfile
-import uuid
 
 
 class ExportTransaction:
     def __init__(self, destination):
         self.destination = Path(destination).resolve()
+        from backup_storage import backup_root
+        root = backup_root()
+        if root.is_relative_to(self.destination):
+            raise ValueError('Exportmappen får inte innehålla appens backupmapp.')
         self.destination.parent.mkdir(parents=True, exist_ok=True)
         self.stage = Path(tempfile.mkdtemp(prefix='.' + self.destination.name + '-export-', dir=self.destination.parent))
         self.backup = None
@@ -32,13 +35,15 @@ class ExportTransaction:
         if not check_links(self.stage)['ok']:
             raise ValueError('Exporten har trasiga länkar; tidigare galleri behålls.')
         if self.destination.exists():
-            self.backup = self.destination.with_name(self.destination.name + '.gallery-backup-' + uuid.uuid4().hex[:12])
-            self.destination.rename(self.backup)
+            from backup_storage import new_backup, move_directory_to_backup
+            self.backup = new_backup('galleries',self.destination.name)
+            move_directory_to_backup(self.destination,self.backup)
         try:
             self.stage.rename(self.destination)
         except BaseException:
             if self.backup is not None:
-                self.backup.rename(self.destination)
+                from backup_storage import restore_directory
+                restore_directory(self.backup,self.destination)
             raise
         self.committed = True
         self.relocate(context, self.stage, self.destination)

@@ -55,7 +55,7 @@ Manuell uppdatering inifrån appen laddas ned och installeras direkt när inga j
 
 Installationen använder bara Python. Den kontrollerar tagg mot `APP_VERSION`, arkivets sökvägar, storleksgränser och Python-syntax innan filer byts ut.
 Programkod, `requirements.txt` och ikoner ersätts. Inställningar, exporter och andra filer lämnas orörda.
-Gamla programfiler sparas i en syskonmapp med `.release-backup-<tid>` i namnet. Vid installationsfel försöker uppdateraren återställa alla ändrade filer.
+Gamla programfiler sparas under appmappens `backups/releases/`. Vid installationsfel försöker uppdateraren återställa alla ändrade filer.
 Detta skyddar mot vanliga installationsfel, men inte mot strömavbrott; säkerhetskopian behålls för manuell återställning.
 Gamla överflödiga programfiler tas inte bort automatiskt. Arkivet verifieras inte med en separat kryptografisk signatur.
 
@@ -81,7 +81,7 @@ Nya exporter innehåller `gallery-project.json` med bildordning, galleriinställ
 Äldre standard-/flat-exporter kan läsas från bildkorten i HTML, men tema, beskrivning och egna tillägg kan behöva återskapas; en varning visas.
 PDF/video tas med vid omsparning. Redigering av enskilda bildtexter och videor ingår inte i denna redigerare.
 
-Sparning sker först i en temporär mapp. Därefter flyttas den gamla exporten till en syskonmapp med `.backup-<tid>` i namnet och ersätts av den nya.
+Sparning sker först i en temporär mapp. Därefter säkerhetskopieras den gamla exporten under appmappens `backups/editor/` och ersätts av den nya.
 Originalbilder som läggs till ändras inte. Borttagning gäller bara den nya exporten; säkerhetskopian behåller den gamla.
 Om omsparning misslyckas före utbytet är originalexporten orörd. Säkerhetskopior tas inte bort automatiskt.
 
@@ -474,7 +474,7 @@ Uppdatering inifrån den öppna appen återanvänder nu appens befintliga single
 - **Separat uppdateringsprocess:** när en uppdatering godkänts stoppas jobb och osparade ändringar kontrolleras. Inställningar sparas, en separat Python-process startas och appen avslutas. Processen väntar på single-instance-skyddet, installerar exakt vald release-commit och startar appen igen. Vid installationsfel används befintlig rollback och appen startas ändå; detaljer finns i `update.log`. Om hjälpprocessen inte kan startas hålls appen öppen. Inga programfiler behöver längre bytas av den öppna GUI-processen i detta flöde.
 - **Mindre omkodning:** när FFprobe finns bredvid FFmpeg eller i PATH kontrolleras video-/ljudströmmar. En H.264-video med yuv420p och AAC-ljud (eller utan ljud), utan identifierad HDR-transfer, packas om till faststart-MP4 med stream copy. HEVC/övriga format och osäker/otillgänglig probning använder H.264/AAC-konvertering. Detta är en konservativ kompatibilitetskontroll, inte en garanti för varje webbläsare eller H.264-profil.
 - **Verifierad återanvändning:** en `.mp4.web.json` innehåller SHA-256 för källa och resultat samt exportprofilens identitet, inga originalsökvägar. En oförändrad video kodas inte om om även resultatets innehåll verifierats. Ändrad källa, profil eller skadad utfil tvingar nytt resultat. Hashning kräver fortfarande läsning av videon. Miniatyrer hämtas fortsatt från videon vid export.
-- **Skyddad galleri-export:** pipeline-exporten arbetar i en syskonmapp redan från inställningssteget. Direkt HTML-export/redigerarens riktiga generator använder samma skydd. Galleriet länkkontrolleras före mappbytet; FTP körs först efter publicering. Vanliga fel/avbrott lämnar tidigare galleri kvar och rensar endast den tillfälliga arbetskopian. Föregående export behålls som en syskonmapp med `.gallery-backup-…` i namnet. Säkerhetskopior raderas inte automatiskt och kräver extra diskplats. Vid själva publiceringen görs två namnbyten, inte ett universellt atomiskt mappbyte; strömavbrott däremellan kan kräva manuell återställning från backupmappen. Externa filås kan stoppa publiceringen.
+- **Skyddad galleri-export:** pipeline-exporten arbetar i en syskonmapp redan från inställningssteget. Direkt HTML-export/redigerarens riktiga generator använder samma skydd. Galleriet länkkontrolleras före mappbytet; FTP körs först efter publicering. Vanliga fel/avbrott lämnar tidigare galleri kvar och rensar endast den tillfälliga arbetskopian. Föregående export behålls under appmappens `backups/galleries/`. Säkerhetskopior raderas inte automatiskt och kräver extra diskplats. Publicering är inte ett universellt atomiskt mappbyte; över olika diskar kopieras backupen färdigt innan den gamla exportplatsen frigörs; strömavbrott däremellan kan kräva manuell återställning från backupmappen. Externa filås kan stoppa publiceringen.
 - **Tydligare status:** Om-dialogen och startloggen visar installerad commit (12 tecken) och installationsdatum från `.release-state.json`. Äldre/manuella installationer anges som okända. Jobbsteg, videoförberedelse, väntande stopp och publicering visas i befintlig status/progress. Datum gäller installationen, inte releasepubliceringen.
 
 Windows-fönster, filås och verklig uppdatering från en äldre installerad kopia behöver fortfarande verifieras på Windows; automatiska tester här ersätter inte den kontrollen.
@@ -534,3 +534,10 @@ Tester inkluderar verklig export med språk/panorama/videovariant, utebliven upp
 Swish använder den medföljande svarta/vita QR-bilden, payload `C46721817177;;;6`: fast mottagare, inget förvalt belopp eller meddelande, ändringsmask 6. Inga externa QR-tjänster anropas. Mottagarnumret 0721817177 visas också så att det kan anges manuellt; att lägga ett nummer i en QR-kod gör det inte hemligt. Kontrollera alltid mottagarnamn och belopp i Swish. QR-avkodning testas både från originalbilden och i dialogens heltalsskalade storlek, men faktisk betalning/Swish-bankapp har inte provats här.
 
 PayPal öppnar direkt `https://paypal.me/Rickard3dPrint` och Ko-fi direkt `https://ko-fi.com/tokke2` i webbläsaren. Belopp väljs hos betaltjänsten. Inga stödnivåer, extra funktioner mot betalning, externa receptsidor, automatiska betalningar eller obestyrkta fördelningsprocent har införts. Betaltjänsterna har egna villkor och integritetspolicyer. Den inbyggda stöddialogen ersätter inte appens befintliga licens och beskriver inte appen som öppen källkod.
+
+
+## Backup lagras alltid inuti appmappen
+
+Alla **nya** säkerhetskopior lagras under appens `backups/`: `releases/` för programuppdateringar, `galleries/` för gallerigenerering, `editor/` för omsparade gallerier och `config/` för roterade/korrupta inställningsfiler. Inställningarnas aktiva filer ligger fortsatt i användarens konfigurationsmapp; deras nya backupkopior gör det inte. Kan appens backupmapp inte användas väljs aldrig någon extern reservplats. Symlänkar som leder backupmappar utanför appmappen avvisas. Rollback accepterar bara releasebackuper inom rätt apps `backups/releases/`, inte äldre externa backupmappar.
+
+Även gallerier på annan disk säkerhetskopieras inuti appmappen. Då krävs en fullständig kopia över diskarna, vilket kan ta tid och extra diskutrymme. Tillfälliga exportarbetsmappar vid destinationen och OS-temporära nedladdningsfiler är arbetsfiler, inte permanenta säkerhetskopior; de följer sina befintliga städregler. Tidigare skapade externa säkerhetskopior flyttas/raderas **inte** automatiskt. Den här policyn ersätter äldre beskrivningar av syskonbackuper.

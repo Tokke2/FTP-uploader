@@ -2,3 +2,6 @@ __pycache__/
 *.py[cod]
 logs/
 instance_show.trigger
+
+# Runtime backups must stay in the installed app, never in Git.
+backups/

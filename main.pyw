@@ -1788,10 +1788,8 @@ class App(tk.Tk):
             if path.exists():
                 # Korrupt fil: säkra en backup innan vi skriver om
                 try:
-                    backup = get_config_path() / (
-                        "settings.json.corrupt-%s"
-                        % datetime.now().strftime("%Y%m%d_%H%M%S")
-                    )
+                    from backup_storage import config_backup
+                    backup = config_backup(path, '.corrupt-' + datetime.now().strftime("%Y%m%d_%H%M%S"))
                     shutil.copy2(path, backup)
                     safe_write(
                         "[SETTINGS] Korrupt settings.json → backup: %s"

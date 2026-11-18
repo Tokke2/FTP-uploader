@@ -79,7 +79,7 @@ class UpdateTests(unittest.TestCase):
         self.assertIn('Installerad release', message)
         self.assertIn('3.0.0', (self.base / 'main.pyw').read_text())
         self.assertEqual(settings.read_text(), 'keep user settings')
-        backup = next(self.base.parent.glob(self.base.name + '.release-backup-*'))
+        backup = next((self.base / 'backups/releases').glob('release-*'))
         self.assertIn('2.8.4', (backup / 'main.pyw').read_text())
         import shutil
         shutil.rmtree(backup)
@@ -128,7 +128,7 @@ class UpdateTests(unittest.TestCase):
         self.assertIn('2.8.4', (self.base / 'main.pyw').read_text())
         self.assertFalse((self.base / 'start.pyw').exists())
         self.assertFalse((self.base / '.release-update.lock').exists())
-        for backup in self.base.parent.glob(self.base.name + '.release-backup-*'):
+        for backup in (self.base / 'backups/releases').glob('release-*'):
             shutil.rmtree(backup)
 
     def test_resolves_annotated_release_tag_without_main(self):

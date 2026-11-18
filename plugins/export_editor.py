@@ -95,8 +95,11 @@ def save_project(folder, data, images, generator):
     for image in images:
         if not Path(image).is_file():
             raise ValueError('Bilden saknas: %s' % image)
+    from backup_storage import new_backup, backup_root, move_directory_to_backup, restore_directory
+    if backup_root().is_relative_to(folder):
+        raise ValueError('Galleriet får inte innehålla appens backupmapp.')
+    backup = new_backup('editor',folder.name)
     stage = Path(tempfile.mkdtemp(prefix='.gallery-edit-', dir=folder.parent))
-    backup = folder.with_name(folder.name + '.backup-' + datetime.now().strftime('%Y%m%d-%H%M%S-%f'))
     try:
         shutil.copytree(folder, stage, dirs_exist_ok=True)
         # Never let size/mtime copy optimizations reuse the wrong numbered image
@@ -136,11 +139,11 @@ def save_project(folder, data, images, generator):
         result = generator.execute(context)
         if not result.get('html_output') or not (stage / MANIFEST).is_file():
             raise RuntimeError('Exporten kunde inte genereras. Originalet är orört.')
-        folder.rename(backup)
+        move_directory_to_backup(folder,backup)
         try:
             stage.rename(folder)
         except Exception:
-            backup.rename(folder)
+            restore_directory(backup,folder)
             raise
         from local_learning import record_export
         if result.get('optimization_report'):

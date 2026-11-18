@@ -918,10 +918,10 @@ class BasePlugin:
         """Flytta undan en trasig config sa att den kan inspekteras."""
         try:
             stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            target = path.with_name(
-                "%s.corrupt-backup-%s" % (path.name, stamp)
-            )
-            os.replace(path, target)
+            from backup_storage import config_backup
+            target = config_backup(path, '.corrupt-backup-' + stamp)
+            shutil.copy2(path, target)
+            path.unlink()
             self.log(
                 "VARNING",
                 "Trasig config karantänad: %s" % target.name,
@@ -931,7 +931,8 @@ class BasePlugin:
 
     def _backup_name(self, path: Path, index: int) -> Path:
         """Namn pa backup-fil: <fil>.bak, <fil>.bak.1, ..."""
-        return Path(str(path) + (".bak" if index == 0 else ".bak.%d" % index))
+        from backup_storage import config_backup
+        return config_backup(path, ".bak" if index == 0 else ".bak.%d" % index)
 
     def _restore_from_backup(self, path: Path, filename: str):
         """

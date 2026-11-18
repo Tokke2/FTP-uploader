@@ -74,7 +74,7 @@ class DeliveryTests(unittest.TestCase):
         from release_health import write_receipt,rollback
         with tempfile.TemporaryDirectory() as folder:
             base=Path(folder)/'app';base.mkdir()
-            backup=Path(folder)/'app.release-backup-test';backup.mkdir()
+            backup=base/'backups/releases/test';backup.mkdir(parents=True)
             (backup/'main.pyw').write_text('old')
             (base/'main.pyw').write_text('new')
             (base/'new_module.py').write_text('new')

@@ -34,7 +34,9 @@ def rollback(base, commit):
     receipt = json.loads((base/'.release-rollback.json').read_text(encoding='utf-8'))
     if receipt.get('commit') != commit: raise ValueError('Fel rollback-commit')
     backup = Path(receipt['backup']).resolve()
-    if backup.parent != base.parent or not backup.name.startswith(base.name+'.release-backup-') or not backup.is_dir():
+    from backup_storage import category_dir
+    expected = category_dir('releases',base)
+    if backup.parent != expected or not backup.is_dir():
         raise ValueError('Ogiltig backupmapp')
     records = []
     for relative, existed in receipt['changed']:
