@@ -40,6 +40,12 @@ class DonationTests(unittest.TestCase):
         result = zxingcpp.read_barcode(Image.open(QR_FILE))
         self.assertIsNotNone(result)
         self.assertEqual(result.text, SWISH_PAYLOAD)
+        with Image.open(QR_FILE) as source:
+            factor = max(1, (source.width + 239) // 240)
+            displayed = source.resize((source.width // factor, source.height // factor), Image.Resampling.NEAREST)
+            decoded = zxingcpp.read_barcode(displayed)
+            self.assertIsNotNone(decoded)
+            self.assertEqual(decoded.text, SWISH_PAYLOAD)
 
 
     def test_payment_buttons_open_exact_profiles_directly(self):
@@ -72,3 +78,65 @@ class DonationTests(unittest.TestCase):
         dialog = (ROOT / 'donations.py').read_text()
         self.assertIn("window.bind('<Escape>'", dialog)
         self.assertIn("label(SUPPORT_TEXT)", dialog)
+
+    def test_support_dialog_fits_smaller_screens(self):
+        from donations import support_window_size
+        self.assertEqual(support_window_size(1920,1080),(760,780))
+        self.assertEqual(support_window_size(640,480),(600,400))
+        self.assertEqual(support_window_size(360,640),(320,560))
+
+    def test_responsive_native_dialog_wires_direct_buttons_and_single_window(self):
+        import sys
+        from types import SimpleNamespace
+        from donations import show_donations
+        widgets=[]
+        class Widget:
+            def __init__(self, master=None, **kwargs):
+                self.master,self.options,self.bindings=master,kwargs,{}
+                widgets.append(self)
+            def cget(self,key): return self.options[key]
+            def configure(self,**kwargs): self.options.update(kwargs)
+            config=configure
+            def bind(self,event,callback): self.bindings[event]=callback
+            def pack(self,**kwargs): pass
+            def grid(self,**kwargs): self.grid_options=kwargs
+            def grid_forget(self): pass
+            def columnconfigure(self,*args,**kwargs): pass
+            def geometry(self,value): self.geometry_value=value
+            def minsize(self,*args): pass
+            def title(self,*args): pass
+            def protocol(self,*args): pass
+            def winfo_screenwidth(self): return 1280
+            def winfo_screenheight(self): return 800
+            def winfo_exists(self): return True
+            def deiconify(self): pass
+            def lift(self): pass
+            def focus_set(self): pass
+            def destroy(self): pass
+            def create_window(self,*args,**kwargs): return 1
+            def itemconfigure(self,*args,**kwargs): pass
+            def bbox(self,*args): return (0,0,700,1200)
+            def yview(self,*args): pass
+            def set(self,*args): pass
+            def yview_scroll(self,*args): pass
+            def width(self): return 264
+            def subsample(self,*args): return self
+        fake=SimpleNamespace(Toplevel=Widget,Frame=Widget,Label=Widget,Canvas=Widget,
+                             Scrollbar=Widget,Button=Widget,PhotoImage=Widget,TclError=RuntimeError,
+                             messagebox=SimpleNamespace(showerror=lambda *args,**kwargs:self.fail('Payment failed')))
+        parent=SimpleNamespace()
+        with patch.dict(sys.modules,{'tkinter':fake}),patch('app_icon.apply_tk_window_icon'),patch('donations.open_payment',return_value=True) as payment:
+            show_donations(parent)
+            original_window=parent._donation_window
+            canvases=[w for w in widgets if '<Configure>' in w.bindings and 'yscrollcommand' in w.options]
+            self.assertEqual(len(canvases),1)
+            for width in (740,360): canvases[0].bindings['<Configure>'](SimpleNamespace(width=width))
+            for prefix,key in (('PayPal','paypal'),('Ko-fi','kofi')):
+                button=next(w for w in widgets if w.options.get('text','').startswith(prefix))
+                button.options['command']()
+                payment.assert_called_with(key)
+            count=len(widgets)
+            show_donations(parent)
+            self.assertIs(parent._donation_window,original_window)
+            self.assertEqual(len(widgets),count)
+            self.assertIn('<Escape>',original_window.bindings)

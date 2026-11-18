@@ -526,3 +526,11 @@ Ed25519-verifiering finns men **dagens release är inte signerad och signaturkra
 När trustfilen finns är kontrollen obligatorisk: saknad/ogiltig signatur, fel commit eller fel arkivhash stoppar installationen innan programfiler ändras. `cryptography` krävs för verifiering. Utan trustfil visas `unsigned` i ny installationsmetadata; detta får inte förväxlas med verifierad signatur. Key-distribution, rotation, signerad releaseproduktion och skydd mot en redan komprometterad lokal app är inte lösta genom att bara ha verifieringskoden.
 
 Tester inkluderar verklig export med språk/panorama/videovariant, utebliven uppskalning, kryptografisk verifiering/tamper-rejection, hälsotoken och återställning av endast programfiler. Interaktiv WebGL, RTL-utseende, spelarbeteende och Windows-processhantering behöver fortfarande verifieras på riktiga klienter.
+
+### Stöd via Hjälp-menyn
+
+**Hjälp → Donationer / Stöd utvecklingen…** öppnar en egen, rullningsbar stöddialog med Swish-kort och separata PayPal-/Ko-fi-knappar. Kort visas bredvid varandra i breda fönster och staplas på mindre skärmar. Stäng-knappen ligger kvar utanför rullningsytan; Escape stänger och upprepad menyöppning återanvänder dialogen.
+
+Swish använder den medföljande svarta/vita QR-bilden, payload `C46721817177;;;6`: fast mottagare, inget förvalt belopp eller meddelande, ändringsmask 6. Inga externa QR-tjänster anropas. Mottagarnumret 0721817177 visas också så att det kan anges manuellt; att lägga ett nummer i en QR-kod gör det inte hemligt. Kontrollera alltid mottagarnamn och belopp i Swish. QR-avkodning testas både från originalbilden och i dialogens heltalsskalade storlek, men faktisk betalning/Swish-bankapp har inte provats här.
+
+PayPal öppnar direkt `https://paypal.me/Rickard3dPrint` och Ko-fi direkt `https://ko-fi.com/tokke2` i webbläsaren. Belopp väljs hos betaltjänsten. Inga stödnivåer, extra funktioner mot betalning, externa receptsidor, automatiska betalningar eller obestyrkta fördelningsprocent har införts. Betaltjänsterna har egna villkor och integritetspolicyer. Den inbyggda stöddialogen ersätter inte appens befintliga licens och beskriver inte appen som öppen källkod.
