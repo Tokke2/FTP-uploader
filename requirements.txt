@@ -6,6 +6,7 @@ pillow-heif
 imageio-ffmpeg
 resvg-py
 defusedxml
+cryptography
 pystray
 six
 watchdog

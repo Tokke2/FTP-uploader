@@ -50,6 +50,8 @@ def quicktime_to_mp4(source, destination, ffmpeg=None, cancelled=None):
                    '-vf', 'scale=trunc(iw/2)*2:trunc(ih/2)*2',
                    '-c:v', 'libx264', '-crf', '22', '-preset', 'medium', '-pix_fmt', 'yuv420p',
                    '-c:a', 'aac', '-movflags', '+faststart', str(temporary)]
+        from resource_profiles import ffmpeg_args
+        command[-1:-1] = ffmpeg_args()
         flags = getattr(subprocess, 'CREATE_NO_WINDOW', 0) if os.name == 'nt' else 0
         if cancelled is not None:
             from ffmpeg_progress import monitor

@@ -69,7 +69,7 @@ def load_project(folder):
 def write_manifest(output, entries, gallery, output_format, context):
     output = Path(output)
     data = {'version': 2, 'gallery': {key: gallery.get(key) for key in
-            ('title', 'description', 'theme', 'columns', 'jpeg_quality', 'layout')}, 'output_format': output_format,
+            ('title', 'description', 'theme', 'columns', 'jpeg_quality', 'layout', 'delivery')}, 'output_format': output_format,
             'images': [str(Path(entry['full_dst']).relative_to(output).as_posix()) for entry in entries]}
     from .web_image_assets import export_options
     from .gallery_checks import cover_options

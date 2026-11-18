@@ -125,10 +125,12 @@ def restart(base, tag, commit, maintenance=False):
     if not stopped:
         log('Omstart avbruten: appen stängdes inte inom två minuter.')
         return
+    installed = False
     try:
         if tag != '-':
             from auto_update import apply_release
             log(apply_release(base, (tag, commit)))
+            installed = True
     except Exception as exc:
         log('Uppdatering misslyckades: %s' % exc)
     if maintenance:
@@ -144,6 +146,14 @@ def restart(base, tag, commit, maintenance=False):
                 log('FEL: veckouppdateringen av Python-tillägg kunde inte slutföras.')
         except Exception as exc:
             log('FEL i veckokontroll av Python-tillägg: %s' % exc)
+    if installed:
+        from release_health import launch_checked
+        try:
+            healthy = launch_checked(base,commit,spawn,python_executable())
+            log('Hälsokontroll: ' + ('godkänd' if healthy else 'återställd till föregående installation'))
+        except Exception as exc:
+            log('FEL: hälsokontroll/återställning kunde inte slutföras: %s. Backup finns kvar; manuell kontroll krävs.' % exc)
+        return
     environment = dict(os.environ, FTP_UPLOADER_SILENT_RESTART='1')
     spawn([python_executable(), str(base / 'start.pyw')], env=environment)
 

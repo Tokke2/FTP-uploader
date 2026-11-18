@@ -1154,8 +1154,11 @@ class VideoProcessor(VideoProcessorUIMixin, BasePlugin):
         else:
             cmd.extend(["-an"])
 
-        if self.threads_var.get() > 0:
-            cmd.extend(["-threads", str(self.threads_var.get())])
+        from resource_profiles import limits
+        _, profile_threads = limits()
+        requested_threads = self.threads_var.get()
+        cmd.extend(['-threads', str(min(requested_threads, profile_threads) if requested_threads > 0 else profile_threads),
+                    '-filter_threads', '1', '-filter_complex_threads', '1'])
 
         if codec == "h264" and encoder.startswith("lib"):
             cmd.extend([

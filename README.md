@@ -492,3 +492,37 @@ Startsidan har en dragbar avdelare mellan åtgärder och status. Fördelningen s
 Videominiatyrer provas nu vid upp till fyra positioner i klippet (8, 25, 50 och 75 procent när längden kan läsas). Bilderna poängsätts efter kontrast/detaljer och straffas för stora svarta/vita ytor. Detta minskar risken för svarta inledningsrutor men garanterar inte ett estetiskt bästa motiv. Vid okänd längd provas början/1 sekund; befintlig extraktion är reservväg. Kandidatbilder städas bort och avbrott kontrolleras mellan/under extraktionerna. Originalvideon ändras aldrig.
 
 Automatiska tester omfattar layoutvalidering, kontrast, sparad arbetsytedata, skärmgränser, faktisk CSS/manifest-export och en riktig video med svart intro. Tk saknas i testmiljön här: fönsterritning, dragavdelare, DPI och operativsystemens teman är **inte visuellt verifierade** och behöver kontrolleras i den installerade appen.
+
+## Språk, panoraman, videokvaliteter och resursprofiler
+
+Öppna **Inställningar → Galleri → Språk, panorama, videokvaliteter och resurser**. Funktionerna är uttryckliga val; tom språklista, panorama av och inga extra videokvaliteter är standard. Valen sparas med vanliga galleriinställningar och följer med i `gallery-project.json`.
+
+### Flerspråkig statisk export
+
+Ange exempelvis `{"en":{"title":"Gallery","description":"Welcome","labels":{"Stäng hjälpen":"Close help"}},"ar":{"dir":"rtl","title":"معرض"}}` i språkfältet. Exporten får `index.en.html`, `slideshow.en.html` osv. med språkväxlare, `lang`/`dir` och gemensamma mediefiler. Begränsade inbyggda ordlistor finns för engelska, tyska och arabiska; egna `labels` kompletterar/ersätter synliga texter och relevanta attribut. Detta är **inte automatisk fullständig översättning**: bildtexter, längre hjälpinstruktioner och övriga texter behöver egna översättningar. Skriptens källkod ändras inte genom textbyte; en DOM-översättare hanterar dynamiska etiketter. Högst 12 språk per export, validerade språkkoder och inga godtyckliga HTML-fält.
+
+### 360°-panorama
+
+Opt-in för cirka 2:1-bilder skapar `panorama.html` med lokal WebGL-visare, drag/touch, piltangenter, återställning och synfältsreglage. Avsett för equirektangulära sfärpanoraman: proportionen ensam kan inte bevisa att bilden är ett sådant panorama. Vanliga 2:1-foton bör därför inte använda opt-in. Ingen extern JavaScript-tjänst/CDN behövs. Vid saknat WebGL eller lokala `file://`-begränsningar erbjuds bildlänk; en webbserver rekommenderas. Detta läge behandlar **bilder, inte 360°-video**.
+
+### Manuella videokvaliteter
+
+Välj extra MP4-varianter med maxhöjd 480/720/1080. De kodas sekventiellt från webbvideon, utan uppskalning, med faststart/H.264/AAC och innehållsverifierad cache. Små original blir alltså inte faktisk 1080p bara för att 1080 valts. En separat sektion i galleriet/bildspelssidan har kvalitetsknappar som försöker behålla tidspositionen vid byte. Ordinarie lightbox använder fortfarande standardvideon. Det är **inte HLS/DASH eller automatisk bandbreddsanpassning**. Fler kvaliteter kostar tid, disk och uppladdningsvolym.
+
+### Resurser
+
+`quiet`: högst 1 bildarbetare/1 FFmpeg-kodningstråd; `balanced`: högst 2/3; `fast`: högst 8/8, dessutom begränsat av CPU-antal och bildprocessorns befintliga tak. Resursvalet tillämpas när dialogens Använd väljs och lagras per användare i `resources.json`; redan startade jobb ändras inte. Gäller bildpipelinen, webbkonvertering, extra kvaliteter och manuella videoflikens trådval (det lägre taket används). Det är **begränsad parallellism**, inte en hård CPU-procent-, RAM-kvot eller garanti om fläktljud. Kodning sker fortsatt med avbrottskontroll och temporära utdata.
+
+## Uppdateringshälsa, återställning och signaturstöd
+
+Efter en lyckad installation som görs av den nya separata uppdateraren startas appen med en unik hälsotoken. Den måste inom 180 sekunder bekräfta rätt commit efter att Tk:s händelseloop kommit igång (5 sekunders fördröjning). Vid krasch/uteblivet svar avslutas endast den startade barnprocessen. Uppdateraren kontrollerar därefter single-instance-skyddet och återställer endast installerarens registrerade programfiler ur backup, inte användarinställningar/gallerier. Föregående app startas med automatisk uppdatering avstängd för den körningen. Om annan appinstans körs eller återställning inte kan göras säkert lämnas backup kvar och felet skrivs i `logs/update.log`; ingen osäker överskrivning görs. En uppstartssignal bevisar inte att alla plugins, exportflöden eller framtida användaråtgärder fungerar. Funktionen gäller installationer där **uppdaterarprocessen själv redan har det nya hälsokontrollstödet**.
+
+Ed25519-verifiering finns men **dagens release är inte signerad och signaturkrav är inte aktiverat som standard**. Inga privata signeringsnycklar har skapats eller lagrats i projektet. För att aktivera krävs:
+
+1. En separat, säkert förvaltad privat nyckel hos releaseutgivaren.
+2. En betrodd publik Ed25519-nyckel (32 råa bytes, base64) installerad i användarens konfigurationsmapp som `release-trust.json`: `{"public_key":"BASE64_PUBLIC_KEY"}`. Nyckeln hämtas aldrig automatiskt från samma release den ska verifiera.
+3. Release-assets `ftp-release-manifest.json` och `ftp-release-manifest.sig`. Manifestets exakta bytes signeras; `.sig` är base64 av 64 signaturbytes. Manifestet innehåller `tag`, `commit` och `archive_sha256` för **exakta zipball-bytes** som installeras. Ändrar GitHub arkivbytes måste hash/signatur uppdateras, annars stoppas installationen.
+
+När trustfilen finns är kontrollen obligatorisk: saknad/ogiltig signatur, fel commit eller fel arkivhash stoppar installationen innan programfiler ändras. `cryptography` krävs för verifiering. Utan trustfil visas `unsigned` i ny installationsmetadata; detta får inte förväxlas med verifierad signatur. Key-distribution, rotation, signerad releaseproduktion och skydd mot en redan komprometterad lokal app är inte lösta genom att bara ha verifieringskoden.
+
+Tester inkluderar verklig export med språk/panorama/videovariant, utebliven uppskalning, kryptografisk verifiering/tamper-rejection, hälsotoken och återställning av endast programfiler. Interaktiv WebGL, RTL-utseende, spelarbeteende och Windows-processhantering behöver fortfarande verifieras på riktiga klienter.

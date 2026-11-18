@@ -1970,6 +1970,9 @@ if __name__ == "__main__":
     app._error_summary = ErrorSummary().start()
     from release_scheduler import ReleaseScheduler
     app._release_scheduler = ReleaseScheduler(app, BASE_DIR)
+    if os.environ.get('FTP_UPDATE_HEALTH_FILE'):
+        from release_health import acknowledge
+        app.after(5000, lambda: acknowledge(BASE_DIR))
     _startup_phase('Startar mainloop')
     app._safe_mainloop()   # M2: vaktad mainloop
     _startup_phase('Mainloop avslutad')

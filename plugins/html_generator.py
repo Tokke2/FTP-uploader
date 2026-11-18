@@ -280,6 +280,8 @@ class HtmlGenerator(HtmlTemplatesMixin, BasePlugin):
         context['_gallery_generated'] = False
         gallery = context.get("gallery", {})
 
+        from delivery_options import validate as delivery_options
+        delivery = delivery_options(gallery.get('delivery'))
         title         = gallery.get("title", "")
         description   = gallery.get("description", "")
         theme         = gallery.get("theme", "dark")
@@ -405,6 +407,15 @@ class HtmlGenerator(HtmlTemplatesMixin, BasePlugin):
         )
 
         self._make_video_thumbs(video_links, output_path, log)
+        if delivery['qualities']:
+            from video_renditions import create_renditions
+            create_renditions(video_links, output_path, delivery['qualities'], self._find_ffmpeg(),
+                              self._media_cancel_check, self._media_progress_callback)
+        from gallery_delivery import quality_markup
+        custom_footer += quality_markup(video_links)
+        if delivery['panorama_auto']:
+            from panorama_viewer import export_panoramas
+            custom_footer += export_panoramas(entries, output_path)
 
         context["processed_pdfs"]   = pdf_links
         context["processed_videos"] = video_links
@@ -443,6 +454,9 @@ class HtmlGenerator(HtmlTemplatesMixin, BasePlugin):
             video_files=video_links,
             log=log,
         )
+
+        from gallery_delivery import localized_pages
+        localized_pages(output_path, delivery['languages'], title, description)
 
         # Portable editor metadata: only exported relative paths, no source paths.
         from .export_editor import write_manifest

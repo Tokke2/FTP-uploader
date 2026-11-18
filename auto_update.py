@@ -239,6 +239,14 @@ def _install_release(base, release):
                     if total > 64 * 1024 * 1024:
                         raise ValueError('Releasearkivet är för stort.')
                     output.write(chunk)
+            from release_signatures import verify_archive
+            def fetch_signature(url):
+                request = urllib.request.Request(url, headers={'User-Agent': 'FTP-uploader'})
+                with open_release_url(request, timeout=20) as response:
+                    data = response.read(128*1024+1)
+                    if len(data)>128*1024: raise ValueError('För stor signatur/manifest')
+                    return data
+            verification = verify_archive(archive, release, fetch_signature)
             staged = work / 'staged'
             staged.mkdir()
             files = []
@@ -277,7 +285,7 @@ def _install_release(base, release):
             if not version or version[1] != tag.lstrip('v'):
                 raise ValueError('Releasetagg och APP_VERSION stämmer inte överens.')
             state_file = Path('.release-state.json')
-            (staged / state_file).write_text(json.dumps({'tag': tag, 'commit': commit, 'installed_at': datetime.now().astimezone().isoformat(timespec='seconds')}), encoding='utf-8')
+            (staged / state_file).write_text(json.dumps({'tag': tag, 'commit': commit, 'installed_at': datetime.now().astimezone().isoformat(timespec='seconds'), 'verification': verification}), encoding='utf-8')
             files.append(state_file)
             # Validate all code before changing a single installed file.
             for relative in files:
@@ -304,6 +312,8 @@ def _install_release(base, release):
                     incoming.replace(target)
                 finally:
                     incoming.unlink(missing_ok=True)
+            from release_health import write_receipt
+            write_receipt(base, backup, changed, commit)
             return 'Installerad release %s. Säkerhetskopia: %s' % (tag, backup)
     except Exception:
         failures = []
@@ -553,6 +563,6 @@ def handoff_release(app, base, release):
 def installation_info(base):
     try:
         state = json.loads((Path(base) / '.release-state.json').read_text(encoding='utf-8'))
-        return 'Commit: %s\nInstallerad: %s' % (str(state.get('commit', 'okänd'))[:12], state.get('installed_at', 'äldre installation – datum saknas'))
+        return 'Commit: %s\nInstallerad: %s\nSignatur: %s' % (str(state.get('commit', 'okänd'))[:12], state.get('installed_at', 'äldre installation – datum saknas'), state.get('verification', 'ej verifierad'))
     except (OSError, ValueError, TypeError, AttributeError):
         return 'Commit/installationsdatum: saknas (manuell eller äldre installation)'

@@ -300,7 +300,9 @@ class ImageProcessor(BasePlugin):
             cpu = os.cpu_count() or 1
         except Exception:
             cpu = 1
-        return max(1, min(self.MAX_WORKERS, cpu))
+        from resource_profiles import limits
+        workers, _ = limits()
+        return max(1, min(self.MAX_WORKERS, cpu, workers))
 
     def _process_sequential(self, images, cfg, log, progress_cb,
                             cancel_check):
