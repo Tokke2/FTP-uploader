@@ -4,7 +4,7 @@ from pathlib import Path
 import tkinter as tk
 from tkinter import ttk, messagebox
 from app_paths import config_dir
-from workspace_design import TOKENS, apply_styles, load_state, save_state, pane_orientation
+from workspace_design import TOKENS, apply_styles, load_state, save_state, pane_orientation, palette, navigation_icon
 
 
 class Workspace:
@@ -30,8 +30,10 @@ class Workspace:
         destinations = [('Start', 'workspace'), ('1 Projekt', 'settings'), ('2 Media', 'gallery'),
                         ('3 Utseende', 'designer'), ('4 Publicera', 'controls')]
         self.nav_buttons = []
+        self.nav_icons = {}
         for label, key in destinations:
-            button = ttk.Button(self.navigation, text=label, style='Studio.TButton', command=lambda k=key: self.navigate(k))
+            self.nav_icons[key] = navigation_icon(app, key, palette(app)['cyan'])
+            button = ttk.Button(self.navigation, image=self.nav_icons[key], compound='left', text=label, style='Studio.TButton', command=lambda k=key: self.navigate(k))
             self.nav_buttons.append(button)
         self.advanced_button = ttk.Checkbutton(self.navigation, text='Avancerat', variable=self.advanced, command=self.toggle_advanced)
         self.nav_buttons.append(self.advanced_button)
@@ -76,12 +78,24 @@ class Workspace:
         self.home.bind('<Configure>', self.schedule_resize)
         self.navigation.bind('<Configure>', self.navigation_resize)
         self.panes.bind('<ButtonRelease-1>', self.remember_sash)
-        self.theme_binding = app.bind('<<ThemeChanged>>', lambda event: apply_styles(app), add='+')
+        self.refresh_theme()
+        self.theme_binding = app.bind('<<ThemeChanged>>', lambda event: self.refresh_theme(), add='+')
         app.context['_workspace'] = self
         self.toggle_advanced(save=False)
         self.manager.select_tab('workspace')
         app.after_idle(self.resize)
         self.refresh()
+
+    def refresh_theme(self):
+        apply_styles(self.app)
+        colors = palette(self.app)
+        self.home.configure(bg=colors['bg'])
+        self.panes.configure(bg=colors['border'])
+        self.action_canvas.configure(bg=colors['surface'])
+        self.details.configure(bg=colors['surface'], fg=colors['fg'], insertbackground=colors['fg'])
+        for button, key in zip(self.nav_buttons, self.nav_icons):
+            self.nav_icons[key] = navigation_icon(self.app, key, colors['cyan'])
+            button.configure(image=self.nav_icons[key])
 
     def call(self, key, method):
         if getattr(self.app, '_release_update_active', False):

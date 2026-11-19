@@ -16,7 +16,7 @@ def bounded_int(value, default, low, high):
 
 
 def window_size(width, height):
-    return max(280, min(1120, width - 40)), max(240, min(820, height - 80))
+    return max(280, min(1760, width - 40)), max(240, min(1100, height - 80))
 
 
 def pane_orientation(width):
@@ -47,11 +47,56 @@ def save_state(path, value):
 
 def apply_styles(root):
     from tkinter import ttk
+    colors = palette(root)
+    family = setup_fonts(root)
     style = ttk.Style(root)
-    style.configure('Studio.TFrame', background=TOKENS['bg'])
-    style.configure('Studio.Card.TFrame', background=TOKENS['surface'])
-    style.configure('Studio.TLabel', background=TOKENS['surface'], foreground=TOKENS['fg'], padding=4)
-    style.configure('Studio.Title.TLabel', background=TOKENS['bg'], foreground=TOKENS['cyan'], font=('TkDefaultFont', 20, 'bold'))
-    style.configure('Studio.TButton', padding=(12, 9), font=('TkDefaultFont', 10))
+    style.configure('Studio.TFrame', background=colors['bg'])
+    style.configure('Studio.Card.TFrame', background=colors['surface'])
+    style.configure('Studio.TLabel', background=colors['surface'], foreground=colors['fg'], padding=4)
+    style.configure('Studio.Title.TLabel', background=colors['bg'], foreground=colors['cyan'], font=(family, 23, 'bold'))
+    style.configure('Studio.TButton', padding=(12, 9), font=(family, 11))
     style.map('Studio.TButton', foreground=[('disabled', '#666666')])
-    style.configure('Studio.TPanedwindow', background=TOKENS['border'])
+    style.configure('Studio.TPanedwindow', background=colors['border'])
+
+
+def preferred_font(available):
+    """Use installed UI fonts; never download fonts or change DPI scaling."""
+    lookup = {name.casefold(): name for name in available}
+    for name in ('Segoe UI Variable', 'Segoe UI', 'SF Pro Text', 'Inter', 'Noto Sans', 'DejaVu Sans'):
+        if name.casefold() in lookup:
+            return lookup[name.casefold()]
+    return 'TkDefaultFont'
+
+
+def setup_fonts(root):
+    from tkinter import font
+    family = preferred_font(font.families(root))
+    for name in ('TkDefaultFont', 'TkTextFont', 'TkMenuFont', 'TkHeadingFont', 'TkCaptionFont'):
+        font.nametofont(name, root=root).configure(family=family, size=11)
+    return family
+
+
+def palette(root):
+    engine = getattr(root, 'theme_engine', None)
+    if engine is None:
+        return dict(TOKENS)
+    colors = dict(TOKENS)
+    for key, source in {'bg':'bg', 'surface':'surface', 'fg':'fg', 'muted':'text_secondary',
+                        'cyan':'accent', 'border':'border'}.items():
+        colors[key] = engine.get_color(source, colors[key])
+    return colors
+
+
+def navigation_icon(root, kind, color):
+    """Small raster line icons independent of emoji/font availability."""
+    import tkinter as tk
+    image = tk.PhotoImage(master=root, width=20, height=20)
+    shapes = {
+        'workspace': [(3,4,17,6),(3,9,8,17),(10,9,17,11),(10,14,17,17)],
+        'settings': [(2,6,18,8),(4,3,10,6),(2,8,4,17),(4,15,18,17),(16,8,18,17)],
+        'gallery': [(2,3,18,5),(2,5,4,17),(16,5,18,17),(4,15,16,17),(6,9,9,12),(10,7,14,11)],
+        'designer': [(3,3,17,5),(3,9,17,11),(3,15,17,17),(6,2,9,7),(12,8,15,13),(5,14,8,19)],
+        'controls': [(9,2,11,15),(6,5,14,7),(4,13,6,18),(14,13,16,18),(4,17,16,19)]}
+    for rect in shapes[kind]:
+        image.put(color, to=rect)
+    return image

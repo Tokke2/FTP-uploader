@@ -818,6 +818,8 @@ class ThemeEngine:
         self.COLOR_TOOLTIP_FG = self._colors["tooltip_fg"]
         self._gradient_cache = {}     # nytt tema → töm design-cachen
         c = self._colors
+        from workspace_design import setup_fonts
+        family = setup_fonts(self._app)
         s = self._style
         self._applied = True
 
@@ -828,7 +830,7 @@ class ThemeEngine:
         s.configure(".",
             background=c["bg"],
             foreground=c["fg"],
-            font=("Segoe UI", 10),
+            font=(family, 11),
         )
 
         # -- tk.Menyer (Arkiv/Visa/Kor/Plugins/Hjalp) ----------
@@ -840,7 +842,7 @@ class ThemeEngine:
             self._app.option_add("*Menu.selectColor",  c["menu_active_bg"])
             self._app.option_add("*Menu.borderWidth",  0)
             self._app.option_add("*Menu.font",
-                                 ("Segoe UI", 10))
+                                 (family, 11))
         except Exception:
             pass
 
@@ -856,21 +858,21 @@ class ThemeEngine:
         s.configure("TLabelframe.Label",
             background=c["bg"],
             foreground=c["fg"],
-            font=("Segoe UI", 10, "bold"),
+            font=(family, 11, "bold"),
         )
 
         # -- Label ---------------------------------------------
         s.configure("TLabel",
             background=c["bg"],
             foreground=c["fg"],
-            font=("Segoe UI", 10),
+            font=(family, 11),
         )
 
         # -- Button --------------------------------------------
         s.configure("TButton",
             background=c["button_bg"],
             foreground=c["button_fg"],
-            font=("Segoe UI", 10, "bold"),
+            font=(family, 11, "bold"),
             relief="flat",
             padding=(12, 6),
             borderwidth=0,
@@ -889,7 +891,7 @@ class ThemeEngine:
         s.configure("Accent.TButton",
             background=c["accent"],
             foreground="#ffffff",
-            font=("Segoe UI", 10, "bold"),
+            font=(family, 11, "bold"),
             relief="flat",
             padding=(14, 7),
             borderwidth=0,
@@ -907,7 +909,7 @@ class ThemeEngine:
         s.configure("Success.TButton",
             background=c["success"],
             foreground="#ffffff",
-            font=("Segoe UI", 10, "bold"),
+            font=(family, 11, "bold"),
             relief="flat",
             padding=(14, 7),
             borderwidth=0,
@@ -972,7 +974,7 @@ class ThemeEngine:
         s.configure("TMenubutton",
             background=c["button_bg"],
             foreground=c["button_fg"],
-            font=("Segoe UI", 10, "bold"),
+            font=(family, 11, "bold"),
             relief="flat",
         )
         s.map("TMenubutton",
@@ -996,7 +998,7 @@ class ThemeEngine:
         s.configure("TNotebook.Tab",
             background=c["tab_bg"],
             foreground=c["tab_fg"],
-            font=("Segoe UI", 10, "bold"),
+            font=(family, 11, "bold"),
             padding=[18, 8],
             borderwidth=0,
         )
@@ -1038,7 +1040,7 @@ class ThemeEngine:
         s.configure("TCheckbutton",
             background=c["bg"],
             foreground=c["fg"],
-            font=("Segoe UI", 10),
+            font=(family, 11),
         )
         s.map("TCheckbutton",
             background=[("active", c["bg"])],
@@ -1056,7 +1058,7 @@ class ThemeEngine:
         s.configure("TRadiobutton",
             background=c["bg"],
             foreground=c["fg"],
-            font=("Segoe UI", 10),
+            font=(family, 11),
         )
         s.map("TRadiobutton",
             background=[("active", c["bg"])],
@@ -1087,14 +1089,14 @@ class ThemeEngine:
             background=c["tree_bg"],
             foreground=c["tree_fg"],
             fieldbackground=c["tree_bg"],
-            font=("Segoe UI", 10),
+            font=(family, 11),
             rowheight=28,
             bordercolor=c["border_soft"],
         )
         s.configure("Treeview.Heading",
             background=c["tree_heading_bg"],
             foreground=c["tree_heading_fg"],
-            font=("Segoe UI", 10, "bold"),
+            font=(family, 11, "bold"),
             relief="flat",
         )
         s.map("Treeview",

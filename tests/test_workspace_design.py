@@ -11,7 +11,7 @@ ROOT = Path(__file__).resolve().parents[1]
 class WorkspaceDesignTests(unittest.TestCase):
     def test_small_screen_and_panel_orientation(self):
         self.assertEqual(window_size(640, 480), (600, 400))
-        self.assertEqual(window_size(1920, 1080), (1120, 820))
+        self.assertEqual(window_size(1920, 1080), (1760, 1000))
         self.assertEqual(pane_orientation(600), 'vertical')
         self.assertEqual(pane_orientation(1100), 'horizontal')
 
@@ -83,3 +83,34 @@ class WorkspaceDesignTests(unittest.TestCase):
             self.assertIn('object-fit:contain', html)
             project = json.loads((output / 'gallery-project.json').read_text())
             self.assertEqual(project['gallery']['layout']['radius'], 8)
+
+
+class DesktopPolishTests(unittest.TestCase):
+    def test_font_selection_is_portable_and_deterministic(self):
+        from workspace_design import preferred_font
+        self.assertEqual(preferred_font(['DejaVu Sans','Segoe UI']), 'Segoe UI')
+        self.assertEqual(preferred_font(['Noto Sans']), 'Noto Sans')
+        self.assertEqual(preferred_font([]), 'TkDefaultFont')
+
+    def test_wide_screen_has_more_working_room_but_is_bounded(self):
+        self.assertEqual(window_size(3840,2160), (1760,1100))
+        self.assertEqual(window_size(1366,768), (1326,688))
+
+    def test_palette_follows_current_engine_without_mutating_defaults(self):
+        from types import SimpleNamespace
+        from workspace_design import palette
+        original=dict(TOKENS)
+        root=SimpleNamespace(theme_engine=SimpleNamespace(get_color=lambda key,default: '#ffffff' if key=='bg' else default))
+        self.assertEqual(palette(root)['bg'],'#ffffff')
+        self.assertEqual(TOKENS,original)
+
+    def test_all_navigation_icons_are_drawn_without_external_assets(self):
+        from unittest.mock import patch, Mock
+        from workspace_design import navigation_icon
+        from types import SimpleNamespace
+        create = Mock(side_effect=lambda **kw: Mock())
+        with patch.dict('sys.modules', {'tkinter': SimpleNamespace(PhotoImage=create)}):
+            for name in ('workspace','settings','gallery','designer','controls'):
+                icon=navigation_icon(None,name,'#123456')
+                self.assertGreater(icon.put.call_count,0)
+            self.assertEqual(create.call_count,5)
