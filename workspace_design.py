@@ -100,3 +100,11 @@ def navigation_icon(root, kind, color):
     for rect in shapes[kind]:
         image.put(color, to=rect)
     return image
+
+
+def navigation_columns(width):
+    return max(1, min(6, int(width) // 150))
+
+
+def density_padding(mode):
+    return (9, 5) if mode == 'compact' else (14, 11)

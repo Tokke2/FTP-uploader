@@ -4,7 +4,7 @@ from pathlib import Path
 import tkinter as tk
 from tkinter import ttk, messagebox
 from app_paths import config_dir
-from workspace_design import TOKENS, apply_styles, load_state, save_state, pane_orientation, palette, navigation_icon
+from workspace_design import TOKENS, apply_styles, load_state, save_state, pane_orientation, palette, navigation_icon, navigation_columns, density_padding
 
 
 class Workspace:
@@ -37,6 +37,10 @@ class Workspace:
             self.nav_buttons.append(button)
         self.advanced_button = ttk.Checkbutton(self.navigation, text='Avancerat', variable=self.advanced, command=self.toggle_advanced)
         self.nav_buttons.append(self.advanced_button)
+        self.density = tk.StringVar(app, value='Kompakt' if self.state.get('density') == 'compact' else 'Luftig')
+        self.density_box = ttk.Combobox(self.home, textvariable=self.density, values=('Luftig', 'Kompakt'), state='readonly', width=12)
+        self.density_box.pack(anchor='e', padx=12, pady=6)
+        self.density_box.bind('<<ComboboxSelected>>', self.change_density)
         self.heading = ttk.Label(self.home, text='Din galleriarbetsyta', style='Studio.Title.TLabel', padding=12)
         self.heading.pack(fill='x')
         self.panes = tk.PanedWindow(self.home, orient='horizontal', bg=TOKENS['border'], sashwidth=9,
@@ -86,8 +90,15 @@ class Workspace:
         app.after_idle(self.resize)
         self.refresh()
 
+    def change_density(self, event=None):
+        self.state['density'] = 'compact' if self.density.get() == 'Kompakt' else 'comfortable'
+        self.refresh_theme()
+        self.save()
+        self.schedule_resize(None)
+
     def refresh_theme(self):
         apply_styles(self.app)
+        ttk.Style(self.app).configure('Studio.TButton', padding=density_padding(self.state.get('density')))
         colors = palette(self.app)
         self.home.configure(bg=colors['bg'])
         self.panes.configure(bg=colors['border'])
@@ -136,7 +147,7 @@ class Workspace:
             self.save()
 
     def navigation_resize(self, event):
-        count = 3 if event.width < 760 else 6
+        count = navigation_columns(event.width)
         if count == self.nav_width:
             return
         self.nav_width = count
@@ -196,6 +207,9 @@ class Workspace:
             folder or 'Ingen mapp vald', output or 'Ingen export vald', latest, '\n'.join(jobs) or 'Redo',
             'Pågår – nya jobb är spärrade' if getattr(self.app, '_release_update_active', False) else 'Ingen installation pågår',
             installation_info(Path(__file__).resolve().parents[1]))
+        report_path = self.app.context.get('image_quality_report_path')
+        if report_path:
+            text += '\n\nBildstorlek och uppskalningsrisk\n' + str(report_path)
         if text != getattr(self, '_last_details', None):
             position = self.details.yview()[0]
             self.details.configure(state='normal')

@@ -464,6 +464,14 @@ class HtmlGenerator(HtmlTemplatesMixin, BasePlugin):
                        theme=theme, columns=columns, description=description),
                        output_format, context)
 
+        from image_quality import write_quality_report
+        quality_report = write_quality_report(entries, output_path)
+        context['image_quality_report'] = quality_report
+        context['image_quality_report_path'] = str(output_path / 'image-quality.html')
+        warnings = sum(bool(item.get('upscale_risk') or item.get('error')) for item in quality_report['images'])
+        if log:
+            log('  Bildstorlekskontroll: %d varningar. Se image-quality.html (referens: långsida 1920 px).' % warnings)
+
         from .gallery_checks import check_links
         link_report = check_links(output_path)
         context['link_report'] = link_report
