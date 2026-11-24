@@ -99,7 +99,11 @@ def navigation_icon(root, kind, color):
         'controls': [(9,2,11,15),(6,5,14,7),(4,13,6,18),(14,13,16,18),(4,17,16,19)]}
     for rect in shapes[kind]:
         image.put(color, to=rect)
-    return image
+    try:
+        scale = max(1, min(4, round(root.winfo_fpixels('1i') / 96)))
+    except (AttributeError, TypeError, ValueError):
+        scale = 1
+    return image.zoom(scale, scale) if scale > 1 else image
 
 
 def navigation_columns(width):

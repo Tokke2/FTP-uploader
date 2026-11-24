@@ -5,6 +5,8 @@
 Place beside main.pyw. Uses only Python's standard library; never installs packages.
 """
 from datetime import datetime
+from display_runtime import enable_dpi_awareness
+enable_dpi_awareness()
 from pathlib import Path
 import socket
 import quiet_process as subprocess

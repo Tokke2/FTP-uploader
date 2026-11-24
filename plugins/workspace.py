@@ -218,7 +218,11 @@ class Workspace:
             self.details.configure(state='disabled')
             self.details.yview_moveto(position)
             self._last_details = text
-        self.timer = self.app.after(1500, self.refresh)
+        try:
+            hidden = self.app.state() in ('withdrawn', 'iconic')
+        except Exception:
+            hidden = False
+        self.timer = self.app.after(10000 if hidden else 2500, self.refresh)
 
     def cleanup(self):
         if not hasattr(self, 'alive'):

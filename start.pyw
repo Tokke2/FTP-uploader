@@ -2,6 +2,8 @@
 # Copyright (c) 2026 Rickard Längkvist
 """GUI entry point for Windows, macOS and Linux."""
 import os
+from display_runtime import enable_dpi_awareness
+enable_dpi_awareness()
 from pathlib import Path
 import runpy
 import sys

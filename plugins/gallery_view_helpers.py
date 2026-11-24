@@ -137,6 +137,9 @@ class GalleryViewMixin:
         try:
             img = Image.open(img_path)
             opened.append(img)
+            # JPEG draft decoding reduces full-resolution buffers before EXIF/rotation.
+            # Other codecs keep their normal decoder; final resize remains LANCZOS.
+            img.draft('RGB', (size * 2, size * 2))
             try:
                 tx = ImageOps.exif_transpose(img)
             except Exception:

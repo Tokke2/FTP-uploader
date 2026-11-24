@@ -120,6 +120,8 @@
 
 import sys
 import os
+from display_runtime import enable_dpi_awareness
+enable_dpi_awareness()
 from pathlib import Path as _DiagnosticPath
 from startup_diagnostics import install as _install_diagnostics, phase as _startup_phase
 _install_diagnostics(_DiagnosticPath(__file__).resolve().parent)
